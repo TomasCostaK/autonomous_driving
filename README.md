@@ -1,40 +1,59 @@
-﻿
+# Deep Learning Classification using 3D Point Clouds 
 
-# GTA Project MOD 🎮 
-## Final build release #
-### Download:
+## Table of Contents
+- [Objective](#objective)
+- [Dataset](#dataset)
+- [Software](#software)
+- [Testing](#testing)
+- [Resources](#resources)
+- [Visualization of point clouds](#visualization-of-point-clouds)
 
-Simply press button to clone/download zip and then unzip
-### How to install:
+## Objective
 
-1. You have to have GTA V and ScriptHook and  Installed
-2. Copy the contents of "LiDAR GTA V\bin\Release", to your game folder
+In autonomous driving, the vehicle needs to have a clear understanding about its surroundings in order to avoid collisions, to follow the traffic rules and to safely drive the passengers to their destinations. To achieve these goals, there's a need for a system that can detect and classify objects, with a high level of accuracy, from multiple types of sensors. 
 
-### How to use:
+This project aims to process and use the data gathered from a camera and LiDAR system to provide the detection and classification of 3D objects. 
 
-1. Open GTA V
-2. Press F6
-3. Exit GTA V
-4. Run colorize_all.bat to fuse the point cloud with the camera images:
-5. See the following results opening on a software capable to be able to read .ply (MeshLab, e.g.):
+## Dataset
 
+The dataset of colored 3D point clouds is obtained through the simulation of a camera and LiDAR sensor in the GTA V overworld. The resolution of the resulting point clouds is specified in the [LiDAR GTA V.cfg](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V.cfg) file. The resulting GTA V mod file that accomplishes the task of data gathering is [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) 
 
-### How to costumize:
+## Software
 
-Go to LiDAR GTA V.cfg file and edit you settings and error.
-
-
-### Some Samples:
-
-<img src="https://i.imgur.com/HeCKTPx.png" width="500" eight="500">
-
-Pointcloud with no error:
+- GTA V
+- Blender 2.8
+- Microsoft Visual Studio 2017
+- Point Cloud Visualizer addon for Blender
 
 
-<img src="https://i.imgur.com/teTZHL8.png"  width="500"  eight="500">
+## Testing:
 
-Pointcloud with error:
+In order to test this mod to generate colored 3D point cloud data, the follow steps must be followed:
 
-<img src="https://i.imgur.com/UFCUtXu.png" width="500" eight="500">
+1. Install the Grand Theft Auto V game.
+2. Setup [ScriptHookV by Alexander Blade](http://www.dev-c.com/gtav/scripthookv/)
+3. Copy the [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) file to the **Rockstar Games\Grand Theft Auto V** directory
+4. In the same path, create a directory called **Rockstar Games\Grand Theft Auto V\LiDAR GTA V** and add the scripts in the [Data processing scripts](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/tree/master/Data%20processing%20scripts) directory
+5. Start the game and load the **Story Mode**
+6. After the game finishes loading, the following keyboard shortcuts need to be changed (the key remapping menu can be accessed by selecting **Esc** > **SETINGS** > **General**):
+    - "Switch to GTA Online" to **Numpad +**
+    - "Start / Stop recording" to **Numpad -**
+    - "Start / Stop Action Replay Recording" to **Numpad &ast;**
+    - "Cancel Recording" to **Numpad /**
+7. Close the menu and use the following keyboard shortcuts to execute the mod fucntionality:
+    - **F1**: show a notification in the lower-left corner of the screen information about the mod key mappings
+    - **F2**: execute the manual LiDAR and camera snapshot
+    - **F3**: start/stop the recording of the player position
+    - **F5**: start/stop the automatic data gathering with LiDAR and camera
 
-More on samples folder
+## Visualization of point clouds
+
+To visualize a point cloud file with a **.ply** extension, the software **Blender v2.8** was used with the **Point Cloud Visualizer addon** activated. A video tutorial on how to use this addon can be found [here](https://www.youtube.com/watch?v=dTP1Sv7CkjQ).
+
+## Resources
+
+- Original LiDAR simulation mod for GTA V
+     - https://github.com/UsmanJafri/LiDAR-GTA-V
+- Point Cloud Visualizer addon for Blender
+     - https://github.com/uhlik/bpy
+     - https://www.youtube.com/watch?v=dTP1Sv7CkjQ
