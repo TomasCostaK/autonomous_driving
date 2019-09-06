@@ -14,6 +14,8 @@ In autonomous driving, the vehicle needs to have a clear understanding about its
 
 This project aims to process and use the data gathered from a camera and LiDAR system to provide the detection and classification of 3D objects. 
 
+For more details check the [wiki](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/wiki).
+
 ## Dataset
 
 The dataset of colored 3D point clouds is obtained through the simulation of a camera and LiDAR sensor in the GTA V overworld. The resolution of the resulting point clouds is specified in the [LiDAR GTA V.cfg](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/Data%20processing%20scripts/LiDAR%20GTA%20V.cfg) file. The resulting GTA V mod file that accomplishes the task of data gathering is [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) 
