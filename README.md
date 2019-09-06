@@ -16,7 +16,7 @@ This project aims to process and use the data gathered from a camera and LiDAR s
 
 ## Dataset
 
-The dataset of colored 3D point clouds is obtained through the simulation of a camera and LiDAR sensor in the GTA V overworld. The resolution of the resulting point clouds is specified in the [LiDAR GTA V.cfg](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V.cfg) file. The resulting GTA V mod file that accomplishes the task of data gathering is [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) 
+The dataset of colored 3D point clouds is obtained through the simulation of a camera and LiDAR sensor in the GTA V overworld. The resolution of the resulting point clouds is specified in the [LiDAR GTA V.cfg](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/Data%20processing%20scripts/LiDAR%20GTA%20V.cfg) file. The resulting GTA V mod file that accomplishes the task of data gathering is [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) 
 
 ## Software
 
