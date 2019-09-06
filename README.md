@@ -5,8 +5,8 @@
 - [Dataset](#dataset)
 - [Software](#software)
 - [Testing](#testing)
-- [Resources](#resources)
 - [Visualization of point clouds](#visualization-of-point-clouds)
+- [Resources](#resources)
 
 ## Objective
 
