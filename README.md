@@ -35,7 +35,7 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
 3. Copy the [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) file to the **Rockstar Games\Grand Theft Auto V** directory
 4. In the same path, create a directory called **Rockstar Games\Grand Theft Auto V\LiDAR GTA V** and add the scripts in the [Data processing scripts](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/tree/master/Data%20processing%20scripts) directory
 5. Start the game and load the **Story Mode**
-6. After the game finishes loading, the following keyboard shortcuts need to be changed (the key remapping menu can be accessed by selecting **Esc** > **SETINGS** > **General**):
+6. After the game finishes loading, the following keyboard shortcuts need to be changed (the key remapping menu can be accessed by selecting **Esc** > **SETTINGS** > **General**):
     - "Switch to GTA Online" to **Numpad +**
     - "Start / Stop recording" to **Numpad -**
     - "Start / Stop Action Replay Recording" to **Numpad &ast;**
