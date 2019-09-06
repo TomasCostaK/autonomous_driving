@@ -40,7 +40,7 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
     - "Start / Stop recording" to **Numpad -**
     - "Start / Stop Action Replay Recording" to **Numpad &ast;**
     - "Cancel Recording" to **Numpad /**
-7. Close the menu and use the following keyboard shortcuts to execute the mod fucntionality:
+7. Close the menu and use the following keyboard shortcuts to execute the mod functionality:
     - **F1**: show a notification in the lower-left corner of the screen information about the mod key mappings
     - **F2**: execute the manual LiDAR and camera snapshot
     - **F3**: start/stop the recording of the player position
