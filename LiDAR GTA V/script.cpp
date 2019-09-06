@@ -1,12 +1,10 @@
 ﻿#define _USE_MATH_DEFINES
 #include "script.h"
 #include "keyboard.h"
-#include <string>
 #include <ctime>
 #include <fstream>
 #include <math.h>
 #include <stdio.h>
-#include <vector>
 #include <sstream>
 #include <iostream>
 #include <windows.h>
@@ -14,6 +12,8 @@
 #include <iterator>
 #include <random>
 #include "direct.h"
+#include <stdlib.h>
+#include <chrono>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -26,6 +26,241 @@ static std::default_random_engine generator;
 static std::uniform_real_distribution<double> distribution(-1.0, 1.0);
 
 using namespace Gdiplus;
+
+std::string lidarParentDir = "LiDAR GTA V";
+std::string lidarLogFilePath = lidarParentDir + "/log.txt";
+std::string lidarCfgFilePath = lidarParentDir + "/LiDAR GTA V.cfg";
+std::string lidarErrorDistFilePath = lidarParentDir + "/dist_error.csv";
+int numCfgParams = 10;
+
+std::string characterPositionsFilePath = lidarParentDir + "/_positionsDB.txt";
+double secondsBetweenRecordings = 2;
+bool recordingPositions = false;
+int positionsCounter = 0;
+
+// This has to take into account the amount of time it takes for the game to load the assets.
+// For the loading times to be minimum, the teleportations should be made in the same order as specified by the positions in the text file
+// The character should not teleport to regions far from the current position.
+double secondsBetweenLidarSnapshots = 6;	// taking into account the time that the teleport, lidar scanning and snapshots take
+double secondsToWaitAfterTeleporting = 2;
+bool gatheringLidarData = false;
+bool takeSnap = false;
+int snapshotsCounter = 0;
+
+bool showCommandsAtBeginning = true;
+
+void ScriptMain()
+{
+	srand(GetTickCount());
+
+	// stream for the positionsDB text file for writing
+	std::ofstream positionsDBFileW;
+
+	// stream for the positionsDB text file for reading
+	std::ifstream positionsDBFileR;
+
+	auto start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
+
+	auto start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
+
+	// event handling loop
+	while (true)
+	{
+		// keyboar commands information
+		if(IsKeyJustUp(VK_F1))
+		{
+			notificationOnLeft("- F2: take snapshot\n- F3: start/stop recording player position\n- F4: scripthook V menu\n- F5: start/stop automatic snapshots");
+		}
+
+		// start or stop gathering the player's positions
+		if (IsKeyJustUp(VK_F3))
+		{
+			try
+			{
+				if (!recordingPositions)
+				{
+					start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
+					positionsDBFileW.open(characterPositionsFilePath);	// open file
+					recordingPositions = true;
+					notificationOnLeft("Player position recording is starting!");
+				}
+				else
+				{
+					positionsDBFileW.close();	// close file
+					recordingPositions = false;
+					notificationOnLeft("Player position recording is finished!");
+				}
+			} catch (std::exception &e)
+			{
+				notificationOnLeft(e.what());
+				return;
+			}
+		}
+
+		// get current player position and store it in a file
+		if (recordingPositions)
+		{
+			auto current_time = std::chrono::high_resolution_clock::now();
+
+			double elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time_for_collecting_positions).count();
+
+			if (elapsedTime > secondsBetweenRecordings)
+			{
+				positionsCounter++;
+				// get player pos + offset
+				Vector3 playerCurrentPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 0);
+
+				// write current player position to the text file
+				positionsDBFileW << std::to_string(playerCurrentPos.x) + " " + std::to_string(playerCurrentPos.y) + " " + std::to_string(playerCurrentPos.z) + "\n";
+
+				// reset start time
+				start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
+
+				notificationOnLeft("Number os positions: " + std::to_string(positionsCounter));
+			}
+		}
+
+		// teleporting test
+		/*if (IsKeyJustUp(VK_F8))
+		{
+			Vector3 playerPos;
+			playerPos.x = -824.191833;
+			playerPos.y = 159.095947;
+			playerPos.z = 71.004395;
+			PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
+		}*/
+
+		// start or stop gathering lidar data
+		if (IsKeyJustUp(VK_F5))
+		{
+			try
+			{
+				if (!gatheringLidarData)
+				{
+					start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
+					positionsDBFileR.open(characterPositionsFilePath);	// open file
+					gatheringLidarData = true;
+
+					notificationOnLeft("Lidar data gathering starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+				}
+				else
+				{
+					positionsDBFileR.close();	// close file
+					gatheringLidarData = false;
+					notificationOnLeft("Lidar data gathering completed!");
+				}
+			}
+			catch (std::exception &e)
+			{
+				notificationOnLeft(e.what());
+				return;
+			}
+		}
+
+		// gathering point cloud and photo data according to the positions read from a file
+		if (gatheringLidarData)
+		{
+			auto current_time = std::chrono::high_resolution_clock::now();
+
+			double elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time_for_lidar_scanning).count();
+
+			if (elapsedTime > secondsBetweenLidarSnapshots)
+			{
+				std::string xStr, yStr, zStr;
+				// get next position to teleport to
+				if (positionsDBFileR >> xStr >> yStr >> zStr)
+				{
+					Vector3 playerPos;
+					playerPos.x = atof(xStr.c_str());
+					playerPos.y = atof(yStr.c_str());
+					playerPos.z = atof(zStr.c_str());
+
+					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
+
+					WAIT(secondsToWaitAfterTeleporting);
+
+					takeSnap = true;
+
+					// reset start time
+					start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
+				}
+				else // reached the end of the file
+				{
+					gatheringLidarData = false;
+					positionsDBFileR.close();	// close file
+					notificationOnLeft("Lidar data gathering completed!");
+				}
+			}
+		}
+
+
+		// output stream for writing log information into the log.txt file
+		std::ofstream log;
+		// press F2 to capture environment images and point cloud
+		if (IsKeyJustUp(VK_F2) || takeSnap)
+		{
+			// reset
+			takeSnap = false;
+			if (gatheringLidarData) // in order to not increase the counter when doing manual snapshots
+				snapshotsCounter++;
+
+			try
+			{
+				log.open(lidarLogFilePath);
+				log << "Starting...\n";
+
+				double parameters[6];
+				int range;
+				int errorDist;
+				double error;
+				std::string filename;		// name for the point cloud file (.ply) and it's parent directory
+				std::string ignore;
+				std::ifstream inputFile;
+
+				// load lidar configurations
+				inputFile.open(lidarCfgFilePath);
+				if (inputFile.bad()) {
+					notificationOnLeft("Input file not found. Please re-install the plugin.");
+					return;
+				}
+				log << "Reading input file...\n";
+				inputFile >> ignore >> ignore >> ignore >> ignore >> ignore;
+				for (int i = 0; i < 6; i++) {
+					inputFile >> ignore >> ignore >> parameters[i];
+				}
+				inputFile >> ignore >> ignore >> range;
+				inputFile >> ignore >> ignore >> filename;
+				inputFile >> ignore >> ignore >> error;
+				inputFile >> ignore >> ignore >> errorDist;
+
+				inputFile.close();
+
+				// start lidar process
+				std::string newfolder = "LiDAR GTA V/" + filename + std::to_string(snapshotsCounter);
+				_mkdir(newfolder.c_str());
+				log << "Starting LiDAR...\n";
+				lidar(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5], range, newfolder + "/" + filename, error, errorDist, log);
+				log << "SUCCESS!!!";
+				log.close();
+
+				if (gatheringLidarData)
+					notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter));
+
+			}
+			catch (std::exception &e)
+			{
+				notificationOnLeft(e.what());
+				log << e.what();
+				log.close();
+				return;
+			}
+		}
+
+		WAIT(0);
+	}
+
+	
+}
 
 std::vector<double> split(const std::string& s, char delimiter)
 {
@@ -41,7 +276,7 @@ std::vector<double> split(const std::string& s, char delimiter)
 
 void readErrorFile(std::vector<double>& dist, std::vector<double>& error) {
 	std::ifstream inputFile;
-	inputFile.open("LiDAR GTA V/dist_error.csv");
+	inputFile.open(lidarErrorDistFilePath);
 	std::string errorDists, dists;
 	inputFile >> errorDists;
 	inputFile >> dists;
@@ -105,15 +340,6 @@ void notificationOnLeft(std::string notificationText) {
 	int handle = UI::_DRAW_NOTIFICATION(false, 1);
 }
 
-struct ray {
-	bool hit;
-	Vector3 hitCoordinates;
-	Vector3 surfaceNormal;
-	std::string entityTypeName;
-	int rayResult;
-	int hitEntityHandle;
-};
-
 ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectFlags) {
 	ray result;
 	float targetX = source.x + (direction.x * maxDistance);
@@ -162,6 +388,7 @@ ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range) {
 	direction.x = sin(rotationZ) * multiplyXY * -1;
 	direction.y = cos(rotationZ) * multiplyXY;
 	direction.z = sin(rotationX);
+
 	ray result = raycast(ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 1.2), direction, range, -1);
 	return result;
 }
@@ -416,56 +643,4 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	//Restore HUD and Radar
 	UI::DISPLAY_RADAR(true);
 	UI::DISPLAY_HUD(true);
-}
-
-void ScriptMain()
-{
-	srand(GetTickCount());
-	while (true)
-	{
-		if (IsKeyJustUp(VK_F6))
-		{
-			try
-			{
-				std::ofstream log;
-				log.open("LiDAR GTA V/log.txt");
-				log << "Starting...\n";
-				double parameters[6];
-				int range;
-				int errorDist;
-				double error;
-				std::string filename;
-				std::string ignore;
-				std::ifstream inputFile;
-				inputFile.open("LiDAR GTA V/LiDAR GTA V.cfg");
-				if (inputFile.bad()) {
-					notificationOnLeft("Input file not found. Please re-install the plugin.");
-					return;
-				}
-				log << "Reading input file...\n";
-				inputFile >> ignore >> ignore >> ignore >> ignore >> ignore;
-				for (int i = 0; i < 6; i++) {
-					inputFile >> ignore >> ignore >> parameters[i];
-				}
-				inputFile >> ignore >> ignore >> range;
-				inputFile >> ignore >> ignore >> filename;
-				inputFile >> ignore >> ignore >> error;
-				inputFile >> ignore >> ignore >> errorDist;
-
-				inputFile.close();
-				std::string newfolder = "LiDAR GTA V/" + filename;
-				_mkdir(newfolder.c_str());
-				log << "Starting LiDAR...\n";
-				lidar(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5], range, newfolder + "/" + filename, error, errorDist, log);
-				log << "SUCCESS!!!";
-				log.close();
-			}
-			catch (std::exception& e)
-			{
-				notificationOnLeft(e.what());
-				return;
-			}
-		}
-		WAIT(0);
-	}
 }
