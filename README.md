@@ -18,7 +18,7 @@ For more details check the [wiki](https://github.com/Diogo525/DL-Classification-
 
 ## Dataset
 
-The dataset of colored 3D point clouds is obtained through the simulation of a camera and LiDAR sensor in the GTA V overworld. The resolution of the resulting point clouds is specified in the [LiDAR GTA V.cfg](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/Data%20processing%20scripts/LiDAR%20GTA%20V.cfg) file. The resulting GTA V mod file that accomplishes the task of data gathering is [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) 
+The dataset of colored 3D point clouds is obtained through the simulation of a camera and LiDAR sensor in the GTA V overworld. The resolution of the resulting point clouds is specified in the [LiDAR GTA V.cfg](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/Data%20processing%20scripts/LiDAR%20GTA%20V.cfg) file. The resulting GTA V mod file that accomplishes the task of data gathering is **LiDAR GTA V.asi** (found in the output directory of the project: bin/Release/LiDAR GTA V.asi).
 
 ## Software
 
@@ -34,7 +34,7 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
 
 1. Install the Grand Theft Auto V game.
 2. Setup [ScriptHookV by Alexander Blade](http://www.dev-c.com/gtav/scripthookv/)
-3. Copy the [LiDAR GTA V.asi](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/LiDAR%20GTA%20V/bin/Release/LiDAR%20GTA%20V.asi) file to the **Rockstar Games\Grand Theft Auto V** directory
+3. Copy the **LiDAR GTA V.asi** file to the **Rockstar Games\Grand Theft Auto V** directory
 4. In the same path, create a directory called **Rockstar Games\Grand Theft Auto V\LiDAR GTA V** and add the scripts in the [Data processing scripts](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/tree/master/Data%20processing%20scripts) directory
 5. Start the game and load the **Story Mode**
 6. After the game finishes loading, the following keyboard shortcuts need to be changed (the key remapping menu can be accessed by selecting **Esc** > **SETTINGS** > **General**):
