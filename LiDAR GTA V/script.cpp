@@ -31,6 +31,8 @@ std::string lidarParentDir = "LiDAR GTA V";
 std::string lidarLogFilePath = lidarParentDir + "/log.txt";
 std::string lidarCfgFilePath = lidarParentDir + "/LiDAR GTA V.cfg";
 std::string lidarErrorDistFilePath = lidarParentDir + "/dist_error.csv";
+std::string lidarPointLabelsFilePath = lidarParentDir + "/pointcloudLabels.txt";
+std::ofstream labelsFileStreamW;
 int numCfgParams = 10;
 
 std::string characterPositionsFilePath = lidarParentDir + "/_positionsDB.txt";
@@ -340,11 +342,18 @@ void notificationOnLeft(std::string notificationText) {
 	int handle = UI::_DRAW_NOTIFICATION(false, 1);
 }
 
+//std::string filename = lidarParentDir + "/debug.txt";
+//std::ofstream fileDebug;
+
 ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectFlags) {
 	ray result;
 	float targetX = source.x + (direction.x * maxDistance);
 	float targetY = source.y + (direction.y * maxDistance);
 	float targetZ = source.z + (direction.z * maxDistance);
+
+	//fileDebug << "source: " + std::to_string(source.x) + ", " + std::to_string(source.y) + ", " + std::to_string(source.z) + "\t\t";
+	//fileDebug << "target: " + std::to_string(targetX) + ", " + std::to_string(targetY) + ", " + std::to_string(targetZ) + "\t\t";
+
 	int rayHandle = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(source.x, source.y, source.z, targetX, targetY, targetZ, intersectFlags, PLAYER::PLAYER_PED_ID(), 7);
 	int hit = 0;
 	int hitEntityHandle = -1;
@@ -362,9 +371,15 @@ ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectF
 	result.hitCoordinates = hitCoordinates;
 	result.surfaceNormal = surfaceNormal;
 	result.hitEntityHandle = hitEntityHandle;
+
+	//fileDebug << "hit coordinates: " + std::to_string(result.hitCoordinates.x) + ", " + std::to_string(result.hitCoordinates.y) + ", " + std::to_string(result.hitCoordinates.z) + "\t\t";
+
 	std::string entityTypeName = "Unknown";
 	if (ENTITY::DOES_ENTITY_EXIST(hitEntityHandle)) {
 		int entityType = ENTITY::GET_ENTITY_TYPE(hitEntityHandle);
+
+		labelsFileStreamW << std::to_string(entityType) + "\n";
+
 		if (entityType == 1) {
 			entityTypeName = "GTA.Ped";
 		}
@@ -478,6 +493,8 @@ int SaveScreenshot(std::string filename, ULONG uQuality = 100)
 	return iRes;
 }
 
+
+
 void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, int range, std::string filePath, double error, int errorDist, std::ofstream& log)
 {
 	std::vector<double> dist_vector, error_vector;
@@ -501,6 +518,13 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	log << " Done.\n";
 
 	int vertexCount = (horiFovMax - horiFovMin) * (1 / horiStep) * (vertFovMax - vertFovMin) * (1 / vertStep);
+	log << "horiFovMax " + std::to_string(horiFovMax);
+	log << "horiFovMin " + std::to_string(horiFovMin);
+	log << "horiStep " + std::to_string(horiStep);
+	log << "vertFovMax " + std::to_string(vertFovMax);
+	log << "vertFovMin " + std::to_string(vertFovMin);
+	log << "vertStep " + std::to_string(vertStep);
+
 	log << "Creating dynamic array size[" + std::to_string(vertexCount) + "]...";
 	Vector3* points = NULL;
 	points = new Vector3[vertexCount * 1.5];
@@ -525,18 +549,45 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	GAMEPLAY::SET_TIME_SCALE(StopSpeed);
 	//Take 3D point cloud
 	log << "Taking 3D point cloud...\n";
-	int k = 0;
+	labelsFileStreamW.open(lidarPointLabelsFilePath); // open labels file
+
+	//fileDebug.open(filename);
+
+	int k = 0; // counter for the number of points sampled
 	for (double z = horiFovMin; z < horiFovMax; z += horiStep)
 	{
 		for (double x = vertFovMin; x < vertFovMax; x += vertStep)
 		{
 			ray result = angleOffsetRaycast(x, z, range);
-			//Add points to the point cloud file
-			vertexData += std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
-			points[k] = result.hitCoordinates;
+			
+			// if the ray collided with something, register the distance between the collition point and the ray origin
+			if (!(result.hitCoordinates.x == 0 && result.hitCoordinates.y == 0 && result.hitCoordinates.z == 0))
+			{
+				//fileDebug << "hitCoordinates: " + std::to_string(result.hitCoordinates.x) + " " + std::to_string(result.hitCoordinates.y) + " " + std::to_string(result.hitCoordinates.z) + "\t\t";
+
+				//fileDebug << "surface normal: " + std::to_string(result.surfaceNormal.x) + " " + std::to_string(result.surfaceNormal.y) + " " + std::to_string(result.surfaceNormal.z) + "\t\t";
+
+				//Add distance between the collision point and the ray origin to the .ply file
+				vertexData += std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
+
+				points[k] = result.hitCoordinates;
+
+				//fileDebug << "distance: " + std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
+			}
+			else // resgister the position (0,0,0)
+			{
+				//Add points to the point cloud file
+				vertexData += std::to_string(result.hitCoordinates.x) + " " + std::to_string(result.hitCoordinates.y) + " " + std::to_string(result.hitCoordinates.z) + "\n";
+			}
+
 			k++;
 		}
 	}
+
+	//fileDebug.close();
+
+	labelsFileStreamW.close(); // close labels file
+
 	log << std::to_string(k) + " points filled.\nDone.\n";
 
 	//Set clear weather
