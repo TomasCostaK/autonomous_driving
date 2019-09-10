@@ -143,13 +143,13 @@ void ScriptMain()
 					positionsDBFileR.open(characterPositionsFilePath);	// open file
 					gatheringLidarData = true;
 
-					notificationOnLeft("Lidar data gathering starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+					notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
 				}
 				else
 				{
 					positionsDBFileR.close();	// close file
 					gatheringLidarData = false;
-					notificationOnLeft("Lidar data gathering completed!");
+					notificationOnLeft("Lidar scanning completed!");
 				}
 			}
 			catch (std::exception &e)
@@ -190,7 +190,7 @@ void ScriptMain()
 				{
 					gatheringLidarData = false;
 					positionsDBFileR.close();	// close file
-					notificationOnLeft("Lidar data gathering completed!");
+					notificationOnLeft("Lidar scanning completed!");
 				}
 			}
 		}
@@ -584,8 +584,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 		}
 	}
 
-	//fileDebug.close();
-
 	labelsFileStreamW.close(); // close labels file
 
 	log << std::to_string(k) + " points filled.\nDone.\n";
@@ -629,7 +627,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	//Set clear weather
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
 	GAMEPLAY::SET_OVERRIDE_WEATHER("CLEAR");
-	//Rotate camera 360 degrees and take screenshots
+	
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
 		rot.z = i * 120;
@@ -650,19 +648,28 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 			//Introduce error in voxels
 			Vector3 xyzError;
 			introduceError(&xyzError, voxel.x - centerDot.x, voxel.y - centerDot.y, voxel.z - centerDot.z, error, errorDist, range, dist_vector, error_vector);
+			
 			//Get screen coordinates of 3D voxels w/ error
 			GRAPHICS::_WORLD3D_TO_SCREEN2D(xyzError.x + centerDot.x, xyzError.y + centerDot.y, xyzError.z + centerDot.z, &err_x2d, &err_y2d);
-
+			
+			//fileDebug << "voxel: (" + std::to_string(voxel.x) + ", " + std::to_string(voxel.y) + ", " + std::to_string(voxel.z) + "\t\t";
+			//fileDebug << "xyzError: " + std::to_string(xyzError.x) + ", " + std::to_string(xyzError.y) + ", " + std::to_string(xyzError.z) + "\t\t";
+			//fileDebug << "x2d: " + std::to_string(x2d) + ", y2d: " + std::to_string(y2d) + ", err_x2d " + std::to_string(err_x2d) + ", err_y2d " + std::to_string(err_y2d) + "\n";
 			if (x2d != -1 || y2d != -1) {
 				vertexDataPoints += std::to_string(voxel.x - centerDot.x) + " " + std::to_string(voxel.y - centerDot.y) + " " + std::to_string(voxel.z - centerDot.z) + " " + std::to_string(int(x2d * resolutionX * 1.5)) + " " + std::to_string(int(y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
 			}
 			if (err_x2d > -1 || err_y2d > -1) {
-				vertexError += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + "\n";
-				vertexErrorPoints += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
+				vertexError += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + "\n";
+				vertexErrorPoints += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
+
+				// vertexError += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + "\n";
+				// vertexErrorPoints += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
 			}
 		}
 		log << "Done.\n";
 	}
+
+	//fileDebug.close();
 
 	log << "Deleting array...";
 	delete[] points;
