@@ -57,7 +57,7 @@ To visualize a point cloud file with a **.ply** extension, the software **Blende
 
 Here is a demonstration of the process involved in obtaining sequential point clouds from GTA V:
 
-[![Watch the video](https://i.imgur.com/vKb2F1B.png)](https://www.youtube.com/watch?v=r82ptMSAvQM)
+[![Watch the video](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/_resources/thumbnail_workflow.PNG)](https://www.youtube.com/watch?v=r82ptMSAvQM)
 
 ## Resources
 
