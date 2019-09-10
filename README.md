@@ -6,6 +6,7 @@
 - [Software](#software)
 - [Testing](#testing)
 - [Visualization of point clouds](#visualization-of-point-clouds)
+- [Workflow for gathering point cloud data](#workflow-for-gathering-point-clooud-data)
 - [Resources](#resources)
 
 ## Objective
@@ -51,6 +52,12 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
 ## Visualization of point clouds
 
 To visualize a point cloud file with a **.ply** extension, the software **Blender v2.8** was used with the **Point Cloud Visualizer addon** activated. A video tutorial on how to use this addon can be found [here](https://www.youtube.com/watch?v=dTP1Sv7CkjQ).
+
+## Workflow for gathering point cloud data
+
+Here is a demonstration of the process involved in obtaining sequential point clouds from GTA V:
+
+[![Watch the video](https://i.imgur.com/vKb2F1B.png)](https://www.youtube.com/watch?v=r82ptMSAvQM)
 
 ## Resources
 
