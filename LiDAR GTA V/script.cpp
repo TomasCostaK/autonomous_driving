@@ -118,7 +118,7 @@ void ScriptMain()
 				// reset start time
 				start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
 
-				notificationOnLeft("Number os positions: " + std::to_string(positionsCounter));
+				notificationOnLeft("Number of positions: " + std::to_string(positionsCounter));
 			}
 		}
 
