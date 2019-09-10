@@ -26,6 +26,7 @@ REM create string variable
 set dirPointCloudBaseName=LiDAR_PointCloud
 
 set cloudPointTxtFileName=LiDAR_PointCloud_points.txt
+set cloudPointErrorTxtFileName=LiDAR_PointCloud_error.txt
 set destDirNameForGeneratedPlyFiles=.\_EveryPointCloud\
 
 set baseCloudPointFileName=LiDAR_PointCloud.ply
@@ -44,6 +45,7 @@ for /l %%x in (1, 1, %dirPointCloudCounter%) do (
 		
 		REM create the colored point clouds
 		python colorize.py ".\!dirName!\%cloudPointTxtFileName%"
+		python colorize.py ".\!dirName!\%cloudPointErrorTxtFileName%"
 		
 		REM after using the base point cloud file (LiDAR_PointCloud.ply), delete it
 		del ".\!dirName!\%baseCloudPointFileName%" 
@@ -51,12 +53,14 @@ for /l %%x in (1, 1, %dirPointCloudCounter%) do (
 		del ".\!dirName!\*.txt" 
 		del ".\!dirName!\*.bmp" 
 		
-		REM add a number at the end of each .ply file (before the extension) and copy them to the destination folder
-		copy /y .\!dirName!\*.ply !destDirNameForGeneratedPlyFiles!*!dirNum!.ply
-		
-		REM delete the leftover ply files
-		del ".\!dirName!\*.ply" 
+		cd !dirName!
+		REM quotes used for file with spaces in the name
+		ren "*.ply" "??????????????????????????????????????!dirNum!.*"
+		move "*.ply" "..\_EveryPointCloud"
+		cd ..
 		
 		rmdir .\!dirName!
 	)
 )
+
+endlocal
