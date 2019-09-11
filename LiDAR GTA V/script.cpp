@@ -1,4 +1,5 @@
 ﻿#define _USE_MATH_DEFINES
+
 #include "script.h"
 #include "keyboard.h"
 #include <ctime>
@@ -14,6 +15,7 @@
 #include "direct.h"
 #include <stdlib.h>
 #include <chrono>
+#include <limits>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -48,6 +50,7 @@ int positionsCounter = 0;
 double secondsBetweenLidarSnapshots = 6;	// taking into account the time that the teleport, lidar scanning and snapshots take
 double secondsToWaitAfterTeleporting = 2;
 bool gatheringLidarData = false;
+bool hasAlreadygatherDataInCurrentSession = false;
 bool displayNotice = true;
 bool takeSnap = false;
 int snapshotsCounter = 0;
@@ -152,7 +155,7 @@ void ScriptMain()
 		{
 			if (displayNotice)
 			{
-				notificationOnLeft("Note: In order for the program to write new data successfully, make sure that there are no folders created by previous scannings.\nPress F5 to continue.");
+				notificationOnLeft("Note: In order for the program to successfully write new data, make sure that there aren't any folders created by previous scannings.\n\nPress F5 to continue!");
 				displayNotice = false;
 			}
 			else
@@ -164,14 +167,23 @@ void ScriptMain()
 						start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
 						positionsDBFileR.open(characterPositionsFilePath);	// open file
 						gatheringLidarData = true;
-
-						notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+						
+						if (!hasAlreadygatherDataInCurrentSession)
+						{
+							notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+							hasAlreadygatherDataInCurrentSession = true;
+						}
+						else
+						{
+							notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+							GotoLineInPositionsDBFile(positionsDBFileR, snapshotsCounter+1);
+						}
 					}
 					else
 					{
 						positionsDBFileR.close();	// close file
 						gatheringLidarData = false;
-						notificationOnLeft("Lidar scanning completed!");
+						notificationOnLeft("Lidar scanning was stopped before the end of the file!\n\nTo continue from the latest position, press F5 when ready!");
 					}
 				}
 				catch (std::exception &e)
@@ -283,8 +295,15 @@ void ScriptMain()
 
 		WAIT(0);
 	}
+}
 
-	
+std::ifstream& GotoLineInPositionsDBFile(std::ifstream& inputfile, unsigned int num) 
+{
+	std::string ignore;
+	for (int i = 0; i < num - 1; ++i) {
+		inputfile >> ignore >> ignore >> ignore;	// each line of the positions file has 3 numbers separated by spaces
+	}
+	return inputfile;
 }
 
 std::vector<double> split(const std::string& s, char delimiter)
