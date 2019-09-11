@@ -38,6 +38,8 @@ int numCfgParams = 10;
 std::string characterPositionsFilePath = lidarParentDir + "/_positionsDB.txt";
 double secondsBetweenRecordings = 2;
 bool recordingPositions = false;
+bool haveRecordedPositions = false; // true when the user has recorded positions in the current instance of the game
+									// This way, it's possible to stop and continue recording positions without loosing progress
 int positionsCounter = 0;
 
 // This has to take into account the amount of time it takes for the game to load the assets.
@@ -46,6 +48,7 @@ int positionsCounter = 0;
 double secondsBetweenLidarSnapshots = 6;	// taking into account the time that the teleport, lidar scanning and snapshots take
 double secondsToWaitAfterTeleporting = 2;
 bool gatheringLidarData = false;
+bool displayNotice = true;
 bool takeSnap = false;
 int snapshotsCounter = 0;
 
@@ -82,15 +85,25 @@ void ScriptMain()
 				if (!recordingPositions)
 				{
 					start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
-					positionsDBFileW.open(characterPositionsFilePath);	// open file
+
+					if (haveRecordedPositions)
+					{
+						positionsDBFileW.open(characterPositionsFilePath, std::ios_base::app);	// open file in append mode
+						notificationOnLeft("Player position recording has restarted!");
+					}
+					else
+					{
+						positionsDBFileW.open(characterPositionsFilePath);// open file in overwrite mode
+						notificationOnLeft("Player position recording has started!");
+					}
+
 					recordingPositions = true;
-					notificationOnLeft("Player position recording is starting!");
 				}
 				else
 				{
 					positionsDBFileW.close();	// close file
 					recordingPositions = false;
-					notificationOnLeft("Player position recording is finished!");
+					notificationOnLeft("Player position recording has finished!");
 				}
 			} catch (std::exception &e)
 			{
@@ -115,6 +128,8 @@ void ScriptMain()
 				// write current player position to the text file
 				positionsDBFileW << std::to_string(playerCurrentPos.x) + " " + std::to_string(playerCurrentPos.y) + " " + std::to_string(playerCurrentPos.z) + "\n";
 
+				haveRecordedPositions = true;
+
 				// reset start time
 				start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
 
@@ -135,27 +150,35 @@ void ScriptMain()
 		// start or stop gathering lidar data
 		if (IsKeyJustUp(VK_F5))
 		{
-			try
+			if (displayNotice)
 			{
-				if (!gatheringLidarData)
-				{
-					start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
-					positionsDBFileR.open(characterPositionsFilePath);	// open file
-					gatheringLidarData = true;
-
-					notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
-				}
-				else
-				{
-					positionsDBFileR.close();	// close file
-					gatheringLidarData = false;
-					notificationOnLeft("Lidar scanning completed!");
-				}
+				notificationOnLeft("Note: In order for the program to write new data successfully, make sure that there are no folders created by previous scannings.\nPress F5 to continue.");
+				displayNotice = false;
 			}
-			catch (std::exception &e)
+			else
 			{
-				notificationOnLeft(e.what());
-				return;
+				try
+				{
+					if (!gatheringLidarData)
+					{
+						start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
+						positionsDBFileR.open(characterPositionsFilePath);	// open file
+						gatheringLidarData = true;
+
+						notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+					}
+					else
+					{
+						positionsDBFileR.close();	// close file
+						gatheringLidarData = false;
+						notificationOnLeft("Lidar scanning completed!");
+					}
+				}
+				catch (std::exception &e)
+				{
+					notificationOnLeft(e.what());
+					return;
+				}
 			}
 		}
 
