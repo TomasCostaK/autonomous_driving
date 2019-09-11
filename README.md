@@ -53,7 +53,8 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
     - LiDAR_PointCloud2
     - (...)
     - LiDAR_PointCloudX
-will be found here. Each directory holds the 360º pictures (of the day, night and cloudy weather) and point clouds (the ideal and the point cloud with added errors). 
+    
+-will be found here. Each directory holds the 360º pictures (of the day, night and cloudy weather) and point clouds (the ideal and the point cloud with added errors). 
 9. In order to obtain the colored point clouds, execute the batch script **\_JoinAllDataIntoAFolder.bat**, which will generate them and create a new directory where all of them will reside.
 
 ## Visualization of point clouds
