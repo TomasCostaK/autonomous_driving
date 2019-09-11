@@ -36,7 +36,7 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
 1. Install the Grand Theft Auto V game.
 2. Setup [ScriptHookV by Alexander Blade](http://www.dev-c.com/gtav/scripthookv/)
 3. Copy the **LiDAR GTA V.asi** file to the **Rockstar Games\Grand Theft Auto V** directory
-4. In the same path, create a directory called **Rockstar Games\Grand Theft Auto V\LiDAR GTA V** and add the scripts in the [Data processing scripts](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/tree/master/Data%20processing%20scripts) directory
+4. In the same path, create a directory called **LiDAR GTA V** and add the scripts in the [Data processing scripts](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/tree/master/Data%20processing%20scripts) directory to it
 5. Start the game and load the **Story Mode**
 6. After the game finishes loading, the following keyboard shortcuts need to be changed (the key remapping menu can be accessed by selecting **Esc** > **SETTINGS** > **General**):
     - "Switch to GTA Online" to **Numpad +**
@@ -48,6 +48,13 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
     - **F2**: execute the manual LiDAR and camera snapshot
     - **F3**: start/stop the recording of the player position
     - **F5**: start/stop the automatic data gathering with LiDAR and camera
+8. After finishing the automatic LiDAR scanning, exit from GTA V and open the directory previously created in step 4. A sequence of directories by the names:
+    - LiDAR_PointCloud1
+    - LiDAR_PointCloud2
+    - (...)
+    - LiDAR_PointCloudX
+will be found here. Each directory holds the 360º pictures (of the day, night and cloudy weather) and point clouds (the ideal and the point cloud with added errors). 
+9. In order to obtain the colored point clouds, execute the batch script **\_JoinAllDataIntoAFolder.bat**, which will generate them and create a new directory where all of them will reside.
 
 ## Visualization of point clouds
 
