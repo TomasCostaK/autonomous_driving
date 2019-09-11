@@ -56,6 +56,8 @@ void notificationOnLeft(std::string notificationText);
 
 std::ifstream& GotoLineInPositionsDBFile(std::ifstream& inputfile, unsigned int num);
 
+int CheckNumberOfLinesInFile(std::string filename);
+
 int GetEncoderClsid(WCHAR* format, CLSID* pClsid);
 
 int SaveScreenshot(std::string filename, ULONG uQuality);

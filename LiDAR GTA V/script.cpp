@@ -15,7 +15,6 @@
 #include "direct.h"
 #include <stdlib.h>
 #include <chrono>
-#include <limits>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -53,6 +52,7 @@ bool gatheringLidarData = false;
 bool hasAlreadygatherDataInCurrentSession = false;
 bool displayNotice = true;
 bool takeSnap = false;
+int positionsFileNumberOfLines = -1;
 int snapshotsCounter = 0;
 
 bool showCommandsAtBeginning = true;
@@ -155,7 +155,7 @@ void ScriptMain()
 		{
 			if (displayNotice)
 			{
-				notificationOnLeft("Note: In order for the program to successfully write new data, make sure that there aren't any folders created by previous scannings.\n\nPress F5 to continue!");
+				notificationOnLeft("Reminder: In order for the program to successfully write new data, make sure that there aren't any folders created by previous scannings.\n\nPress F5 again to start!");
 				displayNotice = false;
 			}
 			else
@@ -165,17 +165,20 @@ void ScriptMain()
 					if (!gatheringLidarData)
 					{
 						start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
+
+						positionsFileNumberOfLines = CheckNumberOfLinesInFile(characterPositionsFilePath);
+
 						positionsDBFileR.open(characterPositionsFilePath);	// open file
 						gatheringLidarData = true;
 						
 						if (!hasAlreadygatherDataInCurrentSession)
 						{
-							notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+							notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nTotal number of positions: " + std::to_string(positionsFileNumberOfLines));
 							hasAlreadygatherDataInCurrentSession = true;
 						}
 						else
 						{
-							notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds");
+							notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nRemaining positions: " + std::to_string(positionsFileNumberOfLines - snapshotsCounter));
 							GotoLineInPositionsDBFile(positionsDBFileR, snapshotsCounter+1);
 						}
 					}
@@ -281,8 +284,10 @@ void ScriptMain()
 				log.close();
 
 				if (gatheringLidarData)
-					notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter));
-
+				{
+					int percentageComplete = ((float)snapshotsCounter) / ((float)positionsFileNumberOfLines) * 100;
+					notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter) + "\n\nCompleted: " + std::to_string(percentageComplete) + "%");
+				}
 			}
 			catch (std::exception &e)
 			{
@@ -295,6 +300,13 @@ void ScriptMain()
 
 		WAIT(0);
 	}
+}
+
+int CheckNumberOfLinesInFile(std::string filename)
+{
+	// https://stackoverflow.com/questions/3072795/how-to-count-lines-of-a-file-in-c
+	std::ifstream inFile(filename);
+	return std::count(std::istreambuf_iterator<char>(inFile), std::istreambuf_iterator<char>(), '\n');
 }
 
 std::ifstream& GotoLineInPositionsDBFile(std::ifstream& inputfile, unsigned int num) 
