@@ -571,7 +571,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	WAIT(50);
 	log << " Done.\n";
 
-	int vertexCount = (horiFovMax - horiFovMin) * (1 / horiStep) * (vertFovMax - vertFovMin) * (1 / vertStep);
+	int vertexCount = (horiFovMax - horiFovMin) * (1 / horiStep) * (vertFovMax - vertFovMin) * (1 / vertStep);		// theoretical vertex count (if all raycasts intercept with an object)
 	log << "horiFovMax " + std::to_string(horiFovMax);
 	log << "horiFovMin " + std::to_string(horiFovMin);
 	log << "horiStep " + std::to_string(horiStep);
@@ -588,10 +588,8 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	fileOutputPoints.open(filePath + "_points.txt");
 	fileOutputError.open(filePath + "_error.ply");
 	fileOutputErrorPoints.open(filePath + "_error.txt");
-	fileOutput << "ply\nformat ascii 1.0\nelement vertex " + std::to_string((int)vertexCount) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
-	fileOutputError << "ply\nformat ascii 1.0\nelement vertex " + std::to_string((int)vertexCount) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
-	//fileOutputPoints << std::to_string(centerDot.x) + " " + std::to_string(centerDot.y) + " " + std::to_string(centerDot.z) + " 0 0 0\n";
-	//fileOutputError << std::to_string(centerDot.x) + " " + std::to_string(centerDot.y) + " " + std::to_string(centerDot.z) + " 0 0 0\n";
+	//fileOutput << "ply\nformat ascii 1.0\nelement vertex " + std::to_string((int)vertexCount) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
+	//fileOutputError << "ply\nformat ascii 1.0\nelement vertex " + std::to_string((int)vertexCount) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
 
 	//Disable HUD and Radar
 	UI::DISPLAY_HUD(false);
@@ -626,15 +624,10 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 				points[k] = result.hitCoordinates;
 
+				k++; // a raycast only outputs a point when it hits something
+
 				//fileDebug << "distance: " + std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
 			}
-			else // resgister the position (0,0,0)
-			{
-				//Add points to the point cloud file
-				vertexData += std::to_string(result.hitCoordinates.x) + " " + std::to_string(result.hitCoordinates.y) + " " + std::to_string(result.hitCoordinates.z) + "\n";
-			}
-
-			k++;
 		}
 	}
 
@@ -693,7 +686,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 		SaveScreenshot(filename.c_str());
 
 		log << "Converting 3D to 2D...";
-		for (int j = 0; j < vertexCount; j++)
+		for (int j = 0; j < k; j++)
 		{
 			Vector3 voxel = points[j];
 
@@ -730,6 +723,9 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	points = NULL;
 	log << "Done.\n";
 	log << "Writing to files...";
+	fileOutput << "ply\nformat ascii 1.0\nelement vertex " + std::to_string(k) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
+	fileOutputError << "ply\nformat ascii 1.0\nelement vertex " + std::to_string(k) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
+
 	fileOutput << vertexData;
 	fileOutputPoints << vertexDataPoints;
 	fileOutputError << vertexError;
