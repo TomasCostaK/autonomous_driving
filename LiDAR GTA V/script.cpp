@@ -153,47 +153,61 @@ void ScriptMain()
 		// start or stop gathering lidar data
 		if (IsKeyJustUp(VK_F5))
 		{
-			if (displayNotice)
+			if (CheckNumberOfLinesInFile(characterPositionsFilePath) == 0) // the positions file is empty
 			{
-				notificationOnLeft("Reminder: In order for the program to successfully write new data, make sure that there aren't any folders created by previous scannings.\n\nPress F5 again to start!");
-				displayNotice = false;
+				notificationOnLeft("There aren't any positions stored in the file.\n\nPress F3 to record new positions.");
+				continue;
 			}
-			else
+
+			if (CheckNumberOfLinesInFile(characterPositionsFilePath) - snapshotsCounter > 0) // if not all the positions in the file were scanned, allow for the scanning of the rest
 			{
-				try
+				if (displayNotice)
 				{
-					if (!gatheringLidarData)
+					notificationOnLeft("Reminder: In order for the program to successfully write new data, make sure that there aren't any folders created by previous scannings.\n\nPress F5 again to start!");
+					displayNotice = false;
+				}
+				else
+				{
+					try
 					{
-						start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
-
-						positionsFileNumberOfLines = CheckNumberOfLinesInFile(characterPositionsFilePath);
-
-						positionsDBFileR.open(characterPositionsFilePath);	// open file
-						gatheringLidarData = true;
-						
-						if (!hasAlreadygatherDataInCurrentSession)
+						if (!gatheringLidarData)
 						{
-							notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nTotal number of positions: " + std::to_string(positionsFileNumberOfLines));
-							hasAlreadygatherDataInCurrentSession = true;
+							start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
+
+							positionsFileNumberOfLines = CheckNumberOfLinesInFile(characterPositionsFilePath);
+
+							positionsDBFileR.open(characterPositionsFilePath);	// open file
+							gatheringLidarData = true;
+
+							if (!hasAlreadygatherDataInCurrentSession)
+							{
+								notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nTotal number of positions: " + std::to_string(positionsFileNumberOfLines));
+								hasAlreadygatherDataInCurrentSession = true;
+							}
+							else
+							{
+								notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nRemaining positions: " + std::to_string(positionsFileNumberOfLines - snapshotsCounter));
+								GotoLineInPositionsDBFile(positionsDBFileR, snapshotsCounter + 1);
+							}
 						}
 						else
 						{
-							notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nRemaining positions: " + std::to_string(positionsFileNumberOfLines - snapshotsCounter));
-							GotoLineInPositionsDBFile(positionsDBFileR, snapshotsCounter+1);
+							positionsDBFileR.close();	// close file
+							gatheringLidarData = false;
+							notificationOnLeft("Lidar scanning was stopped before the end of the file!\n\nTo continue from the latest position, press F5 when ready!");
 						}
 					}
-					else
+					catch (std::exception &e)
 					{
-						positionsDBFileR.close();	// close file
-						gatheringLidarData = false;
-						notificationOnLeft("Lidar scanning was stopped before the end of the file!\n\nTo continue from the latest position, press F5 when ready!");
+						notificationOnLeft(e.what());
+						return;
 					}
 				}
-				catch (std::exception &e)
-				{
-					notificationOnLeft(e.what());
-					return;
-				}
+			}
+			else
+			{
+				notificationOnLeft("All positions were scanned!\n\nTo continue the LiDAR scanning add more positions to the file with F3.");
+				continue;
 			}
 		}
 
