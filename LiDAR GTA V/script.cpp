@@ -190,8 +190,6 @@ void ScriptMain()
 								WAIT(secondsBeforeStartingLidarScan);
 								GotoLineInPositionsDBFile(positionsDBFileR, snapshotsCounter + 1);
 							}
-
-							startTeleport = true;
 						}
 						else
 						{
