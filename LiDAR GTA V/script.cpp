@@ -42,11 +42,12 @@ bool recordingPositions = false;
 bool haveRecordedPositions = false; // true when the user has recorded positions in the current instance of the game
 									// This way, it's possible to stop and continue recording positions without loosing progress
 int positionsCounter = 0;
+int secondsBeforeStartingLidarScan = 5; // it has to give time for the game assets to load when the player is far from the first lidar position and needs to be teleported there
 
 // This has to take into account the amount of time it takes for the game to load the assets.
 // For the loading times to be minimum, the teleportations should be made in the same order as specified by the positions in the text file
 // The character should not teleport to regions far from the current position.
-double secondsBetweenLidarSnapshots = 6;	// taking into account the time that the teleport, lidar scanning and snapshots take
+double secondsBetweenLidarSnapshots = 8;	// taking into account the time that the teleport, lidar scanning and snapshots take
 double secondsToWaitAfterTeleporting = 2;
 bool gatheringLidarData = false;
 bool hasAlreadygatherDataInCurrentSession = false;
@@ -99,8 +100,6 @@ void ScriptMain()
 						positionsDBFileW.open(characterPositionsFilePath);// open file in overwrite mode
 						notificationOnLeft("Player position recording has started!");
 					}
-
-					recordingPositions = true;
 				}
 				else
 				{
@@ -181,14 +180,18 @@ void ScriptMain()
 
 							if (!hasAlreadygatherDataInCurrentSession)
 							{
-								notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nTotal number of positions: " + std::to_string(positionsFileNumberOfLines));
+								notificationOnLeft("Lidar scanning starting in " + std::to_string((int)(secondsBeforeStartingLidarScan)) + " seconds" + "\n\nTotal number of positions: " + std::to_string(positionsFileNumberOfLines));
+								WAIT(secondsBeforeStartingLidarScan);
 								hasAlreadygatherDataInCurrentSession = true;
 							}
 							else
 							{
-								notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsBetweenLidarSnapshots + secondsToWaitAfterTeleporting)) + " seconds" + "\n\nRemaining positions: " + std::to_string(positionsFileNumberOfLines - snapshotsCounter));
+								notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsBeforeStartingLidarScan)) + " seconds" + "\n\nRemaining positions: " + std::to_string(positionsFileNumberOfLines - snapshotsCounter));
+								WAIT(secondsBeforeStartingLidarScan);
 								GotoLineInPositionsDBFile(positionsDBFileR, snapshotsCounter + 1);
 							}
+
+							startTeleport = true;
 						}
 						else
 						{
@@ -442,20 +445,19 @@ ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectF
 
 	//fileDebug << "hit coordinates: " + std::to_string(result.hitCoordinates.x) + ", " + std::to_string(result.hitCoordinates.y) + ", " + std::to_string(result.hitCoordinates.z) + "\t\t";
 
-	std::string entityTypeName = "Unknown";
-	if (ENTITY::DOES_ENTITY_EXIST(hitEntityHandle)) {
+	std::string entityTypeName = "RoadsBuildings";	// default name for hitEntityHandle = -1
+	if (ENTITY::DOES_ENTITY_EXIST(hitEntityHandle)) // if the raycast intercepted an object
+	{
 		int entityType = ENTITY::GET_ENTITY_TYPE(hitEntityHandle);
 
-		labelsFileStreamW << std::to_string(entityType) + "\n";
-
 		if (entityType == 1) {
-			entityTypeName = "GTA.Ped";
+			entityTypeName = "HumansAnimals";
 		}
 		else if (entityType == 2) {
-			entityTypeName = "GTA.Vehicle";
+			entityTypeName = "Vehicle";
 		}
 		else if (entityType == 3) {
-			entityTypeName = "GTA.Prop";
+			entityTypeName = "GameProp";
 		}
 	}
 	result.entityTypeName = entityTypeName;
@@ -615,7 +617,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	GAMEPLAY::SET_TIME_SCALE(StopSpeed);
 	//Take 3D point cloud
 	log << "Taking 3D point cloud...\n";
-	labelsFileStreamW.open(lidarPointLabelsFilePath); // open labels file
+	labelsFileStreamW.open(filePath + "_labels.txt"); //lidarPointLabelsFilePath); // open labels file
 
 	//fileDebug.open(filename);
 
@@ -638,6 +640,9 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 				points[k] = result.hitCoordinates;
 
+				// prints the object id. Each model/mesh of the game has its own id
+				labelsFileStreamW << std::to_string(result.hitEntityHandle) + "\n";
+				//labelsFileStreamW << result.entityTypeName + "\n";
 				k++; // a raycast only outputs a point when it hits something
 
 				//fileDebug << "distance: " + std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
