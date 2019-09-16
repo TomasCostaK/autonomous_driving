@@ -602,6 +602,14 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	log << "Creating dynamic array size[" + std::to_string(vertexCount) + "]...";
 	Vector3* points = NULL;
 	points = new Vector3[vertexCount * 1.5];
+	ProjectedPointData* pointsProjected = NULL;
+	pointsProjected = new ProjectedPointData[vertexCount * 1.5]();
+	Vector3* pointsWithError = NULL;
+	pointsWithError = new Vector3[vertexCount * 1.5];
+	ProjectedPointData* pointsProjectedWithError = NULL;
+	pointsProjectedWithError = new ProjectedPointData[vertexCount * 1.5]();	// the new keyword doesnt initialize the built-in types, what is need is '()'
+
+
 	log << " Done.\n";
 	std::ofstream fileOutput, fileOutputPoints, fileOutputError, fileOutputErrorPoints, fileOutputErrorDist, fileOutputRenato;
 	fileOutput.open(filePath + ".ply");
@@ -627,6 +635,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	//fileDebug.open(filename);
 
 	int k = 0; // counter for the number of points sampled
+	// threshold for determining which points should be  
 	for (double z = horiFovMin; z < horiFovMax; z += horiStep)
 	{
 		for (double x = vertFovMin; x < vertFovMax; x += vertStep)
@@ -644,6 +653,14 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 				vertexData += std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
 
 				points[k] = result.hitCoordinates;
+
+				//Introduce error in voxels
+				Vector3 xyzError;
+				introduceError(&xyzError, result.hitCoordinates.x - centerDot.x, result.hitCoordinates.y - centerDot.y, result.hitCoordinates.z - centerDot.z, error, errorDist, range, dist_vector, error_vector);
+
+				vertexError += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + "\n";
+
+				pointsWithError[k] = xyzError;
 
 				// prints the object id. Each model/mesh of the game has its own id
 				labelsFileStreamW << std::to_string(result.entityTypeId) + "\n";		// diferenciar entre 4 conjuntos gerais : humans, cars, roads, others
@@ -712,6 +729,8 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 		std::string filename = filePath + "_Camera_Print_Day_" + std::to_string(i) + ".bmp";
 		SaveScreenshot(filename.c_str());
 
+		// Iterate through every point, determine if it's present in the current FoV, if it is project it onto the picture and assign the screenX, screenY and FoV id to the respective point
+		// This information is stored in the files LiDAR_PointCloud_error.txt and LiDAR_PointCloud_points.txt, to allow an external python script to correctly color the uncolored point cloud (based upon the 3 pictures taken)
 		log << "Converting 3D to 2D...";
 		for (int j = 0; j < k; j++)
 		{
@@ -719,23 +738,37 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 			//Get screen coordinates of 3D voxels
 			GRAPHICS::_WORLD3D_TO_SCREEN2D(voxel.x, voxel.y, voxel.z, &x2d, &y2d);
-			//Introduce error in voxels
-			Vector3 xyzError;
-			introduceError(&xyzError, voxel.x - centerDot.x, voxel.y - centerDot.y, voxel.z - centerDot.z, error, errorDist, range, dist_vector, error_vector);
+			
 			
 			//Get screen coordinates of 3D voxels w/ error
-			GRAPHICS::_WORLD3D_TO_SCREEN2D(xyzError.x + centerDot.x, xyzError.y + centerDot.y, xyzError.z + centerDot.z, &err_x2d, &err_y2d);
+			GRAPHICS::_WORLD3D_TO_SCREEN2D(pointsWithError[j].x + centerDot.x, pointsWithError[j].y + centerDot.y, pointsWithError[j].z + centerDot.z, &err_x2d, &err_y2d);
 			
 			//fileDebug << "voxel: (" + std::to_string(voxel.x) + ", " + std::to_string(voxel.y) + ", " + std::to_string(voxel.z) + "\t\t";
 			//fileDebug << "xyzError: " + std::to_string(xyzError.x) + ", " + std::to_string(xyzError.y) + ", " + std::to_string(xyzError.z) + "\t\t";
 			//fileDebug << "x2d: " + std::to_string(x2d) + ", y2d: " + std::to_string(y2d) + ", err_x2d " + std::to_string(err_x2d) + ", err_y2d " + std::to_string(err_y2d) + "\n";
 			if (x2d != -1 || y2d != -1) {
-				vertexDataPoints += std::to_string(voxel.x - centerDot.x) + " " + std::to_string(voxel.y - centerDot.y) + " " + std::to_string(voxel.z - centerDot.z) + " " + std::to_string(int(x2d * resolutionX * 1.5)) + " " + std::to_string(int(y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
+				if (pointsProjected[j].stateSet == false) // if point hasn't already been colored
+				{
+					pointsProjected[j].stateSet = true;
+					pointsProjected[j].pictureId = i;
+					pointsProjected[j].screenCoordX = int(x2d * resolutionX * 1.5);
+					pointsProjected[j].screenCoordY = int(y2d * resolutionY * 1.5);
+				}
+	
+
+				////vertexDataPoints += std::to_string(voxel.x - centerDot.x) + " " + std::to_string(voxel.y - centerDot.y) + " " + std::to_string(voxel.z - centerDot.z) + " " + std::to_string(int(x2d * resolutionX * 1.5)) + " " + std::to_string(int(y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
 			}
 
 			if (err_x2d > -1 || err_y2d > -1) {
-				vertexError += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + "\n";
-				vertexErrorPoints += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
+				if (pointsProjectedWithError[j].stateSet == false) // if point hasn't already been colored
+				{
+					pointsProjectedWithError[j].stateSet = true;
+					pointsProjectedWithError[j].pictureId = i;
+					pointsProjectedWithError[j].screenCoordX = int(err_x2d * resolutionX * 1.5);
+					pointsProjectedWithError[j].screenCoordY = int(err_y2d * resolutionY * 1.5);
+				}
+
+				////vertexErrorPoints += std::to_string(pointsWithError[j].x) + " " + std::to_string(pointsWithError[j].y) + " " + std::to_string(pointsWithError[j].z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
 
 				// vertexError += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + "\n";
 				// vertexErrorPoints += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
@@ -747,17 +780,49 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	//fileDebug.close();
 
 	log << "Deleting array...";
-	delete[] points;
-	points = NULL;
+	//delete[] points;
+	//points = NULL;
 	log << "Done.\n";
 	log << "Writing to files...";
 	fileOutput << "ply\nformat ascii 1.0\nelement vertex " + std::to_string(k) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
 	fileOutputError << "ply\nformat ascii 1.0\nelement vertex " + std::to_string(k) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
 
 	fileOutput << vertexData;
-	fileOutputPoints << vertexDataPoints;
+	
+	// fill LiDAR_PointCloud_points.txt
+	for (int i = 0; i < vertexCount * 1.5; i++)
+	{
+		if (pointsProjected[i].stateSet == false) // this means that the end of the points captured with the lidar sensor was reached. (From here on were elements that would be used if the lidar rays would always collide with something)
+			break;
+
+		std::string line = std::to_string(points[i].x - centerDot.x) + " " + std::to_string(points[i].y - centerDot.y) + " " + std::to_string(points[i].z - centerDot.z) + " " + std::to_string(pointsProjected[i].screenCoordX) + " " + std::to_string(pointsProjected[i].screenCoordY) + " " + std::to_string(pointsProjected[i].pictureId);
+
+		fileOutputPoints << line + "\n";
+	}
+	
 	fileOutputError << vertexError;
-	fileOutputErrorPoints << vertexErrorPoints;
+
+	// fill LiDAR_PointCloud_error.txt
+	for (int i = 0; i < vertexCount * 1.5; i++)
+	{
+		if (pointsProjectedWithError[i].stateSet == false) // this means that the end of the points captured with the lidar sensor was reached. (From here on were elements that would be used if the lidar rays would always collide with something)
+			break;
+
+		std::string line = std::to_string(pointsWithError[i].x) + " " + std::to_string(pointsWithError[i].y) + " " + std::to_string(pointsWithError[i].z) + " " + std::to_string(pointsProjectedWithError[i].screenCoordX) + " " + std::to_string(pointsProjectedWithError[i].screenCoordY) + " " + std::to_string(pointsProjectedWithError[i].pictureId);
+
+		fileOutputErrorPoints << line + "\n";
+		//fileOutputErrorPoints << vertexErrorPoints;
+	}
+
+	delete[] points;
+	points = NULL;
+	delete[] pointsProjected;
+	pointsProjected = NULL;
+	delete[] pointsWithError;
+	pointsWithError = NULL;
+	delete[] pointsProjectedWithError;
+	pointsProjectedWithError = NULL;
+
 	log << "Done.\n";
 	GAMEPLAY::SET_GAME_PAUSED(false);
 	TIME::PAUSE_CLOCK(false);

@@ -37,6 +37,16 @@ struct ray {
 	int hitEntityHandle;
 };
 
+struct ProjectedPointData {
+	int screenCoordX;
+	int screenCoordY;
+	// 0 (120º), 1 (240º), 2 (360º)
+	int pictureId;
+
+	// determines if the point is already configured or not, in orther to avoid duplicated points in the LiDAR_PointCloud_points.txt and LiDAR_PointCloud_error.txt files
+	bool stateSet = false;
+};
+
 void lidar(	double horiFovMin,
 			double horiFovMax,
 			double vertFovMin,
