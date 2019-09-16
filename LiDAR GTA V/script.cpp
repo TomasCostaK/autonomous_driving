@@ -34,6 +34,7 @@ std::string lidarCfgFilePath = lidarParentDir + "/LiDAR GTA V.cfg";
 std::string lidarErrorDistFilePath = lidarParentDir + "/dist_error.csv";
 std::string lidarPointLabelsFilePath = lidarParentDir + "/pointcloudLabels.txt";
 std::ofstream labelsFileStreamW;
+std::ofstream labelsDetailedFileStreamW;
 int numCfgParams = 10;
 
 std::string characterPositionsFilePath = lidarParentDir + "/_positionsDB.txt";
@@ -100,6 +101,8 @@ void ScriptMain()
 						positionsDBFileW.open(characterPositionsFilePath);// open file in overwrite mode
 						notificationOnLeft("Player position recording has started!");
 					}
+
+					recordingPositions = true;
 				}
 				else
 				{
@@ -444,6 +447,7 @@ ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectF
 	//fileDebug << "hit coordinates: " + std::to_string(result.hitCoordinates.x) + ", " + std::to_string(result.hitCoordinates.y) + ", " + std::to_string(result.hitCoordinates.z) + "\t\t";
 
 	std::string entityTypeName = "RoadsBuildings";	// default name for hitEntityHandle = -1
+	result.entityTypeId = -1;
 	if (ENTITY::DOES_ENTITY_EXIST(hitEntityHandle)) // if the raycast intercepted an object
 	{
 		int entityType = ENTITY::GET_ENTITY_TYPE(hitEntityHandle);
@@ -457,7 +461,9 @@ ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectF
 		else if (entityType == 3) {
 			entityTypeName = "GameProp";
 		}
+		result.entityTypeId = entityType;
 	}
+	
 	result.entityTypeName = entityTypeName;
 	return result;
 }
@@ -616,6 +622,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	//Take 3D point cloud
 	log << "Taking 3D point cloud...\n";
 	labelsFileStreamW.open(filePath + "_labels.txt"); //lidarPointLabelsFilePath); // open labels file
+	labelsDetailedFileStreamW.open(filePath + "_labelsDetailed.txt"); //lidarPointLabelsFilePath); // open labels file
 
 	//fileDebug.open(filename);
 
@@ -639,7 +646,9 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 				points[k] = result.hitCoordinates;
 
 				// prints the object id. Each model/mesh of the game has its own id
-				labelsFileStreamW << std::to_string(result.hitEntityHandle) + "\n";
+				labelsFileStreamW << std::to_string(result.entityTypeId) + "\n";		// diferenciar entre 4 conjuntos gerais : humans, cars, roads, others
+				labelsDetailedFileStreamW << std::to_string(result.hitEntityHandle) + "\n";
+
 				//labelsFileStreamW << result.entityTypeName + "\n";
 				k++; // a raycast only outputs a point when it hits something
 
@@ -649,6 +658,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	}
 
 	labelsFileStreamW.close(); // close labels file
+	labelsDetailedFileStreamW.close();
 
 	log << std::to_string(k) + " points filled.\nDone.\n";
 
@@ -722,6 +732,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 			if (x2d != -1 || y2d != -1) {
 				vertexDataPoints += std::to_string(voxel.x - centerDot.x) + " " + std::to_string(voxel.y - centerDot.y) + " " + std::to_string(voxel.z - centerDot.z) + " " + std::to_string(int(x2d * resolutionX * 1.5)) + " " + std::to_string(int(y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
 			}
+
 			if (err_x2d > -1 || err_y2d > -1) {
 				vertexError += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + "\n";
 				vertexErrorPoints += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";

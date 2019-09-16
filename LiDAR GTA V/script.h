@@ -32,6 +32,7 @@ struct ray {
 	Vector3 hitCoordinates;
 	Vector3 surfaceNormal;
 	std::string entityTypeName;
+	int entityTypeId;
 	int rayResult;
 	int hitEntityHandle;
 };
