@@ -1,16 +1,27 @@
+# 
+# This python script colorizes the uncolored point clouds (LiDAR_PointCloud.ply and LiDAR_PointCloud_error.ply).
+# However these uncolored point clouds are not used by this script in order the produce the colored point clouds.
+# Instead, it used the files LiDAR_PointCloud_points.txt and LiDAR_PointCloud_error.txt to do so.
+# For each directory (named LiDAR_PointCloudX) holding point cloud data, this script is called 2 times:
+#	- first, to produce the ideal colored point cloud, by specifying the file LiDAR_PointCloud_points.txt in the command argument
+#	- second, to produce the colored point cloud with errors/noise, by specifying the file LiDAR_PointCloud_error.txt in the command argument
+# This script produces 3 colored point clouds: one for the day, one for the night and one for the cloudy weather.
 from PIL import Image
 from tqdm import tqdm
 import sys
 
 arg = sys.argv[1]
 
+# splits the argument by '\'. The argument can be a file name, a relative or full path to the file
 filePath = arg.split('\\')
 
+# obtain the directory path to where the file specified in the argument resides.
+# discards the last elment because it's the name of the text file
 dirPath = ''
 for i in range(0, len(filePath)-1):
 	dirPath += filePath[i] + '\\'
 
-print("zzzzzzzzzzzz: " + dirPath)
+# load the pictures that into memory in order to assign them to them points of the point cloud
 imDay = []
 imDay.append(Image.open(dirPath + 'LiDAR_PointCloud_Camera_Print_Day_0.bmp', 'r'))
 imDay.append(Image.open(dirPath + 'LiDAR_PointCloud_Camera_Print_Day_1.bmp', 'r'))
@@ -41,18 +52,22 @@ pix_rgb_cloudy.append(imCloudy[0].load())
 pix_rgb_cloudy.append(imCloudy[1].load())
 pix_rgb_cloudy.append(imCloudy[2].load())
 
+# open the file specified in the python argument
 file = open(sys.argv[1], 'r')
+# and count the number of lines that it has
 n_lines = 0
 for x in file:
     n_lines+=1
 file.close()
 
+# closing and opening the file again to reset the pointer
 file = open(sys.argv[1], 'r')
 color_mapping = {}
 
 print("--" + filePath[len(filePath)-1][:-4])
 with open(dirPath + filePath[len(filePath)-1][:-4] + "_PC_Day.ply","w") as day, open(dirPath + filePath[len(filePath)-1][:-4] + "_PC_Night.ply","w") as night, open(dirPath + filePath[len(filePath)-1][:-4] + "_PC_Cloudy.ply","w") as cloudy:
-    day.write("ply\nformat ascii 1.0\nelement vertex "+str(n_lines)+"\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header")
+    # add the header for the 3 point clouds files that are being generated
+	day.write("ply\nformat ascii 1.0\nelement vertex "+str(n_lines)+"\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header")
     night.write("ply\nformat ascii 1.0\nelement vertex "+str(n_lines)+"\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header")
     cloudy.write("ply\nformat ascii 1.0\nelement vertex "+str(n_lines)+"\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header")
 
