@@ -47,22 +47,14 @@ struct ProjectedPointData {
 	bool stateSet = false;
 };
 
-void lidar(	double horiFovMin,
-			double horiFovMax,
-			double vertFovMin,
-			double vertFovMax,
-			double horiStep,
-			double vertStep,
-			int range,
-			std::string filePath,
-			double error,
-			int errorDist,
-			std::ofstream& log);
+// lidar scanning start functioon
+void lidar(	double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, int range, std::string filePath, double error, int errorDist,	std::ofstream& log);
 
 ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range);
 
 ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectFlags);
 
+// function to print in a string in the bottom left notifications of the game
 void notificationOnLeft(std::string notificationText);
 
 std::ifstream& GotoLineInPositionsDBFile(std::ifstream& inputfile, unsigned int num);
@@ -73,15 +65,8 @@ int GetEncoderClsid(WCHAR* format, CLSID* pClsid);
 
 int SaveScreenshot(std::string filename, ULONG uQuality);
 
-void introduceError(Vector3* xyzError, 
-					double x, 
-					double y, 
-					double z, 
-					double error, 
-					int errorType, 
-					int range, 
-					std::vector<double>& dist_vector, 
-					std::vector<double>& error_vector);
+// add noise to a point of the point cloud
+void introduceError(Vector3* xyzError, double x, double y, double z, double error, int errorType, int range, std::vector<double>& dist_vector, std::vector<double>& error_vector);
 
 double getError(std::vector<double>& dist, std::vector<double>& error, double r);
 
@@ -89,8 +74,7 @@ void readErrorFile(std::vector<double>& dist, std::vector<double>& error);
 
 std::vector<double> split(const std::string& s, char delimiter);
 
-//std::vector<std::string> loadConfigurationInfo(int numParams);
-
+// entry point to the mod
 void ScriptMain();
 
 #endif

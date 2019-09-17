@@ -33,31 +33,29 @@ std::string lidarLogFilePath = lidarParentDir + "/log.txt";
 std::string lidarCfgFilePath = lidarParentDir + "/LiDAR GTA V.cfg";
 std::string lidarErrorDistFilePath = lidarParentDir + "/dist_error.csv";
 std::string lidarPointLabelsFilePath = lidarParentDir + "/pointcloudLabels.txt";
+std::string routeFilePath = lidarParentDir + "/_positionsDB.txt";
 std::ofstream labelsFileStreamW;
 std::ofstream labelsDetailedFileStreamW;
-int numCfgParams = 10;
 
-std::string characterPositionsFilePath = lidarParentDir + "/_positionsDB.txt";
-double secondsBetweenRecordings = 2;
-bool recordingPositions = false;
-bool haveRecordedPositions = false; // true when the user has recorded positions in the current instance of the game
-									// This way, it's possible to stop and continue recording positions without loosing progress
-int positionsCounter = 0;
-int secondsBeforeStartingLidarScan = 5; // it has to give time for the game assets to load when the player is far from the first lidar position and needs to be teleported there
+int positionsCounter = 0;							// number of recorded positions in the current instance of the game
 
-// This has to take into account the amount of time it takes for the game to load the assets.
-// For the loading times to be minimum, the teleportations should be made in the same order as specified by the positions in the text file
-// The character should not teleport to regions far from the current position.
-double secondsBetweenLidarSnapshots = 8;	// taking into account the time that the teleport, lidar scanning and snapshots take
-double secondsToWaitAfterTeleporting = 2;
-bool gatheringLidarData = false;
-bool hasAlreadygatherDataInCurrentSession = false;
-bool displayNotice = true;
-bool takeSnap = false;
-int positionsFileNumberOfLines = -1;
-int snapshotsCounter = 0;
-
+bool takeSnap = false;	
+bool displayNotice = true;						
+bool recordingPositions = false;					// if position recording is taking place or not
+bool gatheringLidarData = false;					// if we are at the process of automatic LiDAR scanning
+bool haveRecordedPositions = false;					// true: when the user has recorded positions in the current instance of the game (enables the restart of the recordings from the last recorded position)
 bool showCommandsAtBeginning = true;
+bool hasAlreadygatherDataInCurrentSession = false;	// for displaying the appropriate notification
+
+// position recording
+float secondsBetweenRecordings = 2;					// seconds between position recording
+
+// lidar scanning
+int secondsBeforeStartingLidarScan = 2;				// in order for the scanning start to not be sudden
+float secondsBetweenLidarSnapshots = 5;				// taking into account the time that the teleport, lidar scanning and snapshots take
+
+int positionsFileNumberOfLines = -1;				// number of lines of the file with the route
+int snapshotsCounter = 0;							// number of lidar scans completed
 
 void ScriptMain()
 {
@@ -79,11 +77,42 @@ void ScriptMain()
 		// keyboar commands information
 		if(IsKeyJustUp(VK_F1))
 		{
-			notificationOnLeft("- F2: take snapshot\n- F3: start/stop recording player position\n- F4: scripthook V menu\n- F5: start/stop automatic snapshots");
+			notificationOnLeft("- F2: teleport to the route starting position\n- F3: start/stop recording player position\n- F4: scripthook V menu\n- F5: start/stop automatic snapshots");
+		}
+
+		// teleport the character to the start position of the route, or the route position from where the automatic scanning was interrupted/stopped
+		if (IsKeyJustUp(VK_F2) && !gatheringLidarData && !recordingPositions)
+		{
+			
+			try {
+				std::ifstream positionsFileRforTeleportation;
+				positionsFileRforTeleportation.open(routeFilePath);
+
+				GotoLineInPositionsDBFile(positionsFileRforTeleportation, snapshotsCounter + 1);
+				
+				// transport the player to the route position 
+				// this way the assets can load before the lidar scanning starts
+				std::string xStr, yStr, zStr;
+				if (positionsFileRforTeleportation >> xStr >> yStr >> zStr)
+				{
+					Vector3 playerPos;
+					playerPos.x = atof(xStr.c_str());
+					playerPos.y = atof(yStr.c_str());
+					playerPos.z = atof(zStr.c_str());
+
+					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
+				}
+
+				positionsFileRforTeleportation.close();
+			} catch (std::exception &e)
+			{
+				notificationOnLeft(e.what());
+				return;
+			}
 		}
 
 		// start or stop gathering the player's positions
-		if (IsKeyJustUp(VK_F3))
+		if (IsKeyJustUp(VK_F3) && !gatheringLidarData)
 		{
 			try
 			{
@@ -93,12 +122,14 @@ void ScriptMain()
 
 					if (haveRecordedPositions)
 					{
-						positionsDBFileW.open(characterPositionsFilePath, std::ios_base::app);	// open file in append mode
+						// doesnt overwrite the file
+						positionsDBFileW.open(routeFilePath, std::ios_base::app);	// open file in append mode
 						notificationOnLeft("Player position recording has restarted!");
 					}
 					else
 					{
-						positionsDBFileW.open(characterPositionsFilePath);// open file in overwrite mode
+						// overwrites the file
+						positionsDBFileW.open(routeFilePath);// open file in overwrite mode
 						notificationOnLeft("Player position recording has started!");
 					}
 
@@ -127,7 +158,7 @@ void ScriptMain()
 			if (elapsedTime > secondsBetweenRecordings)
 			{
 				positionsCounter++;
-				// get player pos + offset
+				// get player position + offset
 				Vector3 playerCurrentPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 0);
 
 				// write current player position to the text file
@@ -142,26 +173,16 @@ void ScriptMain()
 			}
 		}
 
-		// teleporting test
-		/*if (IsKeyJustUp(VK_F8))
-		{
-			Vector3 playerPos;
-			playerPos.x = -824.191833;
-			playerPos.y = 159.095947;
-			playerPos.z = 71.004395;
-			PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
-		}*/
-
 		// start or stop gathering lidar data
-		if (IsKeyJustUp(VK_F5))
+		if (IsKeyJustUp(VK_F5) && !recordingPositions)
 		{
-			if (CheckNumberOfLinesInFile(characterPositionsFilePath) == 0) // the positions file is empty
+			if (CheckNumberOfLinesInFile(routeFilePath) == 0) // the positions file is empty
 			{
 				notificationOnLeft("There aren't any positions stored in the file.\n\nPress F3 to record new positions.");
 				continue;
 			}
 
-			if (CheckNumberOfLinesInFile(characterPositionsFilePath) - snapshotsCounter > 0) // if not all the positions in the file were scanned, allow for the scanning of the rest
+			if (CheckNumberOfLinesInFile(routeFilePath) - snapshotsCounter > 0) // if not all the positions in the file were scanned, allow for the continuation of the scanning
 			{
 				if (displayNotice)
 				{
@@ -176,9 +197,9 @@ void ScriptMain()
 						{
 							start_time_for_lidar_scanning = std::chrono::high_resolution_clock::now();
 
-							positionsFileNumberOfLines = CheckNumberOfLinesInFile(characterPositionsFilePath);
+							positionsFileNumberOfLines = CheckNumberOfLinesInFile(routeFilePath);
 
-							positionsDBFileR.open(characterPositionsFilePath);	// open file
+							positionsDBFileR.open(routeFilePath);	// open file
 							gatheringLidarData = true;
 
 							if (!hasAlreadygatherDataInCurrentSession)
@@ -235,8 +256,6 @@ void ScriptMain()
 
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
 
-					WAIT(secondsToWaitAfterTeleporting);
-
 					takeSnap = true;
 
 					// reset start time
@@ -255,7 +274,7 @@ void ScriptMain()
 		// output stream for writing log information into the log.txt file
 		std::ofstream log;
 		// press F2 to capture environment images and point cloud
-		if (IsKeyJustUp(VK_F2) || takeSnap)
+		if (takeSnap)
 		{
 			// reset
 			takeSnap = false;
@@ -385,6 +404,7 @@ void introduceError(Vector3* xyzError, double x, double y, double z, double erro
 	double el = std::atan2(z, hxy);
 	double az = std::atan2(y, x);
 
+	// the error type is defined in the configurations file
 	if (errorType == 0)
 		r = r + distribution(generator) * error;
 	else if (errorType == 1)
@@ -414,40 +434,35 @@ void notificationOnLeft(std::string notificationText) {
 	int handle = UI::_DRAW_NOTIFICATION(false, 1);
 }
 
-//std::string filename = lidarParentDir + "/debug.txt";
-//std::ofstream fileDebug;
-
 ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectFlags) {
 	ray result;
 	float targetX = source.x + (direction.x * maxDistance);
 	float targetY = source.y + (direction.y * maxDistance);
 	float targetZ = source.z + (direction.z * maxDistance);
 
-	//fileDebug << "source: " + std::to_string(source.x) + ", " + std::to_string(source.y) + ", " + std::to_string(source.z) + "\t\t";
-	//fileDebug << "target: " + std::to_string(targetX) + ", " + std::to_string(targetY) + ", " + std::to_string(targetZ) + "\t\t";
-
 	int rayHandle = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(source.x, source.y, source.z, targetX, targetY, targetZ, intersectFlags, PLAYER::PLAYER_PED_ID(), 7);
 	int hit = 0;
 	int hitEntityHandle = -1;
+	
 	Vector3 hitCoordinates;
 	hitCoordinates.x = 0;
 	hitCoordinates.y = 0;
 	hitCoordinates.z = 0;
+	
 	Vector3 surfaceNormal;
 	surfaceNormal.x = 0;
 	surfaceNormal.y = 0;
 	surfaceNormal.z = 0;
+
 	int rayResult = WORLDPROBE::_GET_RAYCAST_RESULT(rayHandle, &hit, &hitCoordinates, &surfaceNormal, &hitEntityHandle);
 	result.rayResult = rayResult;
 	result.hit = hit;
 	result.hitCoordinates = hitCoordinates;
 	result.surfaceNormal = surfaceNormal;
-	result.hitEntityHandle = hitEntityHandle;
-
-	//fileDebug << "hit coordinates: " + std::to_string(result.hitCoordinates.x) + ", " + std::to_string(result.hitCoordinates.y) + ", " + std::to_string(result.hitCoordinates.z) + "\t\t";
+	result.hitEntityHandle = hitEntityHandle;	// true id of the object that the raycast collided with
 
 	std::string entityTypeName = "RoadsBuildings";	// default name for hitEntityHandle = -1
-	result.entityTypeId = -1;
+	result.entityTypeId = -1;						// general id, that envelopes all the gameobjects into just 4 categories
 	if (ENTITY::DOES_ENTITY_EXIST(hitEntityHandle)) // if the raycast intercepted an object
 	{
 		int entityType = ENTITY::GET_ENTITY_TYPE(hitEntityHandle);
@@ -567,8 +582,6 @@ int SaveScreenshot(std::string filename, ULONG uQuality = 100)
 	return iRes;
 }
 
-
-
 void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, int range, std::string filePath, double error, int errorDist, std::ofstream& log)
 {
 	std::vector<double> dist_vector, error_vector;
@@ -616,8 +629,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	fileOutputPoints.open(filePath + "_points.txt");
 	fileOutputError.open(filePath + "_error.ply");
 	fileOutputErrorPoints.open(filePath + "_error.txt");
-	//fileOutput << "ply\nformat ascii 1.0\nelement vertex " + std::to_string((int)vertexCount) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
-	//fileOutputError << "ply\nformat ascii 1.0\nelement vertex " + std::to_string((int)vertexCount) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
 
 	//Disable HUD and Radar
 	UI::DISPLAY_HUD(false);
@@ -629,10 +640,8 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	GAMEPLAY::SET_TIME_SCALE(StopSpeed);
 	//Take 3D point cloud
 	log << "Taking 3D point cloud...\n";
-	labelsFileStreamW.open(filePath + "_labels.txt"); //lidarPointLabelsFilePath); // open labels file
-	labelsDetailedFileStreamW.open(filePath + "_labelsDetailed.txt"); //lidarPointLabelsFilePath); // open labels file
-
-	//fileDebug.open(filename);
+	labelsFileStreamW.open(filePath + "_labels.txt");					// open labels file
+	labelsDetailedFileStreamW.open(filePath + "_labelsDetailed.txt");	// open labels file
 
 	int k = 0; // counter for the number of points sampled
 	// threshold for determining which points should be  
@@ -645,10 +654,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 			// if the ray collided with something, register the distance between the collition point and the ray origin
 			if (!(result.hitCoordinates.x == 0 && result.hitCoordinates.y == 0 && result.hitCoordinates.z == 0))
 			{
-				//fileDebug << "hitCoordinates: " + std::to_string(result.hitCoordinates.x) + " " + std::to_string(result.hitCoordinates.y) + " " + std::to_string(result.hitCoordinates.z) + "\t\t";
-
-				//fileDebug << "surface normal: " + std::to_string(result.surfaceNormal.x) + " " + std::to_string(result.surfaceNormal.y) + " " + std::to_string(result.surfaceNormal.z) + "\t\t";
-
 				//Add distance between the collision point and the ray origin to the .ply file
 				vertexData += std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
 
@@ -666,10 +671,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 				labelsFileStreamW << std::to_string(result.entityTypeId) + "\n";		// diferenciar entre 4 conjuntos gerais : humans, cars, roads, others
 				labelsDetailedFileStreamW << std::to_string(result.hitEntityHandle) + "\n";
 
-				//labelsFileStreamW << result.entityTypeName + "\n";
 				k++; // a raycast only outputs a point when it hits something
-
-				//fileDebug << "distance: " + std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
 			}
 		}
 	}
@@ -743,9 +745,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 			//Get screen coordinates of 3D voxels w/ error
 			GRAPHICS::_WORLD3D_TO_SCREEN2D(pointsWithError[j].x + centerDot.x, pointsWithError[j].y + centerDot.y, pointsWithError[j].z + centerDot.z, &err_x2d, &err_y2d);
 			
-			//fileDebug << "voxel: (" + std::to_string(voxel.x) + ", " + std::to_string(voxel.y) + ", " + std::to_string(voxel.z) + "\t\t";
-			//fileDebug << "xyzError: " + std::to_string(xyzError.x) + ", " + std::to_string(xyzError.y) + ", " + std::to_string(xyzError.z) + "\t\t";
-			//fileDebug << "x2d: " + std::to_string(x2d) + ", y2d: " + std::to_string(y2d) + ", err_x2d " + std::to_string(err_x2d) + ", err_y2d " + std::to_string(err_y2d) + "\n";
 			if (x2d != -1 || y2d != -1) {
 				if (pointsProjected[j].stateSet == false) // if point hasn't already been colored
 				{
@@ -754,9 +753,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 					pointsProjected[j].screenCoordX = int(x2d * resolutionX * 1.5);
 					pointsProjected[j].screenCoordY = int(y2d * resolutionY * 1.5);
 				}
-	
-
-				////vertexDataPoints += std::to_string(voxel.x - centerDot.x) + " " + std::to_string(voxel.y - centerDot.y) + " " + std::to_string(voxel.z - centerDot.z) + " " + std::to_string(int(x2d * resolutionX * 1.5)) + " " + std::to_string(int(y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
 			}
 
 			if (err_x2d > -1 || err_y2d > -1) {
@@ -767,21 +763,12 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 					pointsProjectedWithError[j].screenCoordX = int(err_x2d * resolutionX * 1.5);
 					pointsProjectedWithError[j].screenCoordY = int(err_y2d * resolutionY * 1.5);
 				}
-
-				////vertexErrorPoints += std::to_string(pointsWithError[j].x) + " " + std::to_string(pointsWithError[j].y) + " " + std::to_string(pointsWithError[j].z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
-
-				// vertexError += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + "\n";
-				// vertexErrorPoints += std::to_string(xyzError.x - centerDot.x) + " " + std::to_string(xyzError.y - centerDot.y) + " " + std::to_string(xyzError.z - centerDot.z) + " " + std::to_string(int(err_x2d * resolutionX * 1.5)) + " " + std::to_string(int(err_y2d * resolutionY * 1.5)) + " " + std::to_string(i) + "\n";
 			}
 		}
 		log << "Done.\n";
 	}
 
-	//fileDebug.close();
-
 	log << "Deleting array...";
-	//delete[] points;
-	//points = NULL;
 	log << "Done.\n";
 	log << "Writing to files...";
 	fileOutput << "ply\nformat ascii 1.0\nelement vertex " + std::to_string(k) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
@@ -811,17 +798,13 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 		std::string line = std::to_string(pointsWithError[i].x) + " " + std::to_string(pointsWithError[i].y) + " " + std::to_string(pointsWithError[i].z) + " " + std::to_string(pointsProjectedWithError[i].screenCoordX) + " " + std::to_string(pointsProjectedWithError[i].screenCoordY) + " " + std::to_string(pointsProjectedWithError[i].pictureId);
 
 		fileOutputErrorPoints << line + "\n";
-		//fileOutputErrorPoints << vertexErrorPoints;
 	}
 
+	// deallocate all arrays
 	delete[] points;
-	points = NULL;
 	delete[] pointsProjected;
-	pointsProjected = NULL;
 	delete[] pointsWithError;
-	pointsWithError = NULL;
 	delete[] pointsProjectedWithError;
-	pointsProjectedWithError = NULL;
 
 	log << "Done.\n";
 	GAMEPLAY::SET_GAME_PAUSED(false);
