@@ -36,8 +36,6 @@ std::string lidarPointLabelsFilePath = lidarParentDir + "/pointcloudLabels.txt";
 std::string routeFilePath = lidarParentDir + "/_positionsDB.txt";
 std::ofstream labelsFileStreamW;
 std::ofstream labelsDetailedFileStreamW;
-std::ofstream debugFileW;
-std::string debugFilePath = lidarParentDir + "/debug.txt";
 
 int positionsCounter = 0;							// number of recorded positions in the current instance of the game
 
@@ -77,8 +75,6 @@ void ScriptMain()
 
 	// stream for the positionsDB text file for reading
 	std::ifstream positionsDBFileR;
-
-	debugFileW.open(debugFilePath);
 
 	auto start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
 
@@ -275,7 +271,6 @@ void ScriptMain()
 					gatheringLidarData = false;
 					positionsDBFileR.close();	// close file
 					notificationOnLeft("Lidar scanning completed!");
-					debugFileW.close();
 				}
 			}
 		}
@@ -307,8 +302,6 @@ void ScriptMain()
 			takeSnap = false;
 			if (gatheringLidarData) // in order to not increase the counter when doing manual snapshots
 				snapshotsCounter++;
-
-			debugFileW << "Start scan: ////////////////////////////////////////\n/";
 
 			try
 			{
@@ -534,10 +527,8 @@ ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range)
 	raycastCenterPos.y = playerPos.y;
 	raycastCenterPos.z = playerPos.z + raycastHeightparam;
 
-	debugFileW << "Player pos: (" + std::to_string(playerPos.x) + ", " + std::to_string(playerPos.y) + ", " + std::to_string(playerPos.z) + "); " + "Camera rotation: (" + std::to_string(rot.x) + ", " + std::to_string(rot.y) + ", " + std::to_string(rot.z) + "); " + "angleOffsetX: " + std::to_string(angleOffsetX) + "; angleOffsetZ: " + std::to_string(angleOffsetZ) + "; direction: (" + std::to_string(direction.x) + ", " + std::to_string(direction.y) + ", " + std::to_string(direction.z) + "); raycast center pos: (" + std::to_string(raycastCenterPos.x) + ", " + std::to_string(raycastCenterPos.y) + ", " + std::to_string(raycastCenterPos.z) + ");\n";
-
 	ray result = raycast(raycastCenterPos, direction, range, -1);
-	//ray result = raycast(ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 1.2), direction, range, -1);
+	
 	return result;
 }
 
@@ -635,8 +626,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	centerDot.x = playerPos.x;
 	centerDot.y = playerPos.y;
 	centerDot.z = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightparam - halfCharacterHeight).z;
-	//playerPos.z + raycastHeight;
-	//Vector3 centerDot = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 1.2);
 
 	int resolutionX, resolutionY;
 	GRAPHICS::GET_SCREEN_RESOLUTION(&resolutionX, &resolutionY);
@@ -651,26 +640,8 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	CAM::RENDER_SCRIPT_CAMS(1, 0, 0, 1, 0);
 	CAM::SET_CAM_ACTIVE(panoramicCam, true);
 	WAIT(50);
-	log << " Done.\n";
 
 	int vertexCount = (horiFovMax - horiFovMin) * (1 / horiStep) * (vertFovMax - vertFovMin) * (1 / vertStep);		// theoretical vertex count (if all raycasts intercept with an object)
-	log << "horiFovMax " + std::to_string(horiFovMax);
-	log << "horiFovMin " + std::to_string(horiFovMin);
-	log << "horiStep " + std::to_string(horiStep);
-	log << "vertFovMax " + std::to_string(vertFovMax);
-	log << "vertFovMin " + std::to_string(vertFovMin);
-	log << "vertStep " + std::to_string(vertStep);
-
-	log << "Creating dynamic array size[" + std::to_string(vertexCount) + "]...";
-	//Vector3* points = NULL;
-	//points = new Vector3[vertexCount * 1.5];
-	//ProjectedPointData* pointsProjected = NULL;
-	//pointsProjected = new ProjectedPointData[vertexCount * 1.5]();
-	//Vector3* pointsWithError = NULL;
-	//pointsWithError = new Vector3[vertexCount * 1.5];
-	//ProjectedPointData* pointsProjectedWithError = NULL;
-	//pointsProjectedWithError = new ProjectedPointData[vertexCount * 1.5]();	// the new keyword doesnt initialize the built-in types, what is need is '()'
-
 
 	log << " Done.\n";
 	std::ofstream fileOutput, fileOutputPoints, fileOutputError, fileOutputErrorPoints, fileOutputErrorDist;
@@ -700,7 +671,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	int no_of_rows = nVerticalSteps;
 	int initial_value = 0;
 
-
 	// It's a vector containing no_of_rows vectors containing no_of_cols points.
 	std::vector<std::vector<Vector3>> pointsMatrix(no_of_rows, std::vector<Vector3>(no_of_cols));
 	std::vector<std::vector<Vector3>> pointsWithErrorMatrix(no_of_rows, std::vector<Vector3>(no_of_cols));
@@ -712,74 +682,36 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 	std::vector<int> pointsPerVerticalStep(nVerticalSteps);
 
-	log << "nVerticalSteps: " + std::to_string(nVerticalSteps) + "\n";
-	log << "nHorizontalSteps: " + std::to_string(nHorizontalSteps) + "\n";
-	// threshold for determining which points should be  
-	//for (double z = horiFovMin; z < horiFovMax; z += horiStep)			// 0 to 360, in steps of 0.5 => 360/0.5 = 720 horizontal/circle points
-
 	int indexRowCounter = 0;
-	for (double x = vertFovMin; x < vertFovMax; x += vertStep)
-	{
-		// determine the current row index of the matrices
-		/*int currentIndexRow = 0;
-		for (double i = vertFovMin; i < vertFovMax; i += vertStep)
-		{
-			if (x == i)
-				break;
-			else
-				currentIndexRow++;
-		}*/
-		
+	for (double x = vertFovMin; x < vertFovMax; x += vertStep)	// 0 to 360, in steps of 0.5 => 360/0.5 = 720 horizontal/circle points
+	{	
 		pointsPerVerticalStep[indexRowCounter] = 0;
 		
 		int indexColumnCounter = 0;
-		// for each horizontal angle calculate all the vertical points
-		//for (double x = vertFovMin; x < vertFovMax; x += vertStep)		// -15 to 12, in steps of 0.5 => (15+12)/0.5 = 74 vertical points for each horizontal angle
-		for (double z = horiFovMin; z < horiFovMax; z += horiStep)
-		{
-			// determine the current column index of the matrices
-			/*int currentIndexColumn = 0;
-			for (double i = horiFovMin; i < horiFovMax; i += horiStep)
-			{
-				if (z == i)
-					break;
-				else
-					currentIndexColumn++;
-			}*/
-			
+
+		for (double z = horiFovMin; z < horiFovMax; z += horiStep)	// -15 to 12, in steps of 0.5 => (15+12)/0.5 = 74 vertical points for each horizontal angle
+		{			
 			ray result = angleOffsetRaycast(x, z, range);
 
 			// if the ray collided with something, register the distance between the collition point and the ray origin
 			if (!(result.hitCoordinates.x == 0 && result.hitCoordinates.y == 0 && result.hitCoordinates.z == 0))
 			{
-				//Add distance between the collision point and the ray origin to the .ply file
-				//vertexData += std::to_string(result.hitCoordinates.x - centerDot.x) + " " + std::to_string(result.hitCoordinates.y - centerDot.y) + " " + std::to_string(result.hitCoordinates.z - centerDot.z) + "\n";
-
-				//points[k] = result.hitCoordinates;
 				pointsMatrix[indexRowCounter][indexColumnCounter] = result.hitCoordinates;
 
 				//Introduce error in voxels
 				Vector3 xyzError;
 				introduceError(&xyzError, result.hitCoordinates.x - centerDot.x, result.hitCoordinates.y - centerDot.y, result.hitCoordinates.z - centerDot.z, error, errorDist, range, dist_vector, error_vector);
 
-				//vertexError += std::to_string(xyzError.x) + " " + std::to_string(xyzError.y) + " " + std::to_string(xyzError.z) + "\n";
-
-				//pointsWithError[k] = xyzError;
 				pointsWithErrorMatrix[indexRowCounter][indexColumnCounter] = xyzError;
 
 				// prints the object id. Each model/mesh of the game has its own id
 				labels[indexRowCounter][indexColumnCounter] = result.entityTypeId;
 				labelsDetailed[indexRowCounter][indexColumnCounter] = result.hitEntityHandle;
-				//labelsFileStreamW << std::to_string(result.entityTypeId) + "\n";		// diferenciar entre 4 conjuntos gerais : humans, cars, roads, others
-				//labelsDetailedFileStreamW << std::to_string(result.hitEntityHandle) + "\n";
 
 				pointsPerVerticalStep[indexRowCounter]++; // a raycast only outputs a point when it hits something
-				//k++; 
 			}
 
 			indexColumnCounter++;
-
-			//log << "pointsPerVerticalStep[currentIndexRow]: " + std::to_string(pointsPerVerticalStep[currentIndexRow]);
 		}
 
 		indexRowCounter++;
@@ -916,12 +848,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 			labelsDetailedFileStreamW << std::to_string(labelsDetailed[i][j]) + "\n";
 		}
 	}
-
-	// deallocate all arrays
-	//delete[] points;
-	//delete[] pointsProjected;
-	//delete[] pointsWithError;
-	//delete[] pointsProjectedWithError;
 
 	log << "Done.\n";
 	GAMEPLAY::SET_GAME_PAUSED(false);
