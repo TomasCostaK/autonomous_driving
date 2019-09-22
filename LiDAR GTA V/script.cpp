@@ -36,6 +36,8 @@ std::string lidarPointLabelsFilePath = lidarParentDir + "/pointcloudLabels.txt";
 std::string routeFilePath = lidarParentDir + "/_positionsDB.txt";
 std::ofstream labelsFileStreamW;
 std::ofstream labelsDetailedFileStreamW;
+std::ofstream playerRotationsStreamW;
+std::string playerRotationsFilename = lidarParentDir + "/_rotationsDB.txt";
 
 int positionsCounter = 0;							// number of recorded positions in the current instance of the game
 
@@ -53,7 +55,7 @@ float secondsBetweenRecordings = 2;					// seconds between position recording
 
 // lidar scanning
 int secondsBeforeStartingLidarScan = 2;				// in order for the scanning start to not be sudden
-float secondsBetweenLidarSnapshots = 17;			// taking into account the time that the teleport, lidar scanning and snapshots take
+float secondsBetweenLidarSnapshots = 14;			// taking into account the time that the teleport, lidar scanning and snapshots take
 int secondsToWaitAfterTeleport = 3;
 
 int positionsFileNumberOfLines = -1;				// number of lines of the file with the route
@@ -75,6 +77,8 @@ void ScriptMain()
 
 	// stream for the positionsDB text file for reading
 	std::ifstream positionsDBFileR;
+
+	std::ifstream playerRotationsStreamR;
 
 	auto start_time_for_collecting_positions = std::chrono::high_resolution_clock::now();
 
@@ -99,12 +103,16 @@ void ScriptMain()
 				std::ifstream positionsFileRforTeleportation;
 				positionsFileRforTeleportation.open(routeFilePath);
 
+				std::ifstream rotationsFileRforTeleportation;
+				rotationsFileRforTeleportation.open(playerRotationsFilename);
+
 				GotoLineInPositionsDBFile(positionsFileRforTeleportation, snapshotsCounter + 1);
 				
 				// transport the player to the route position 
 				// this way the assets can load before the lidar scanning starts
 				std::string xStr, yStr, zStr;
-				if (positionsFileRforTeleportation >> xStr >> yStr >> zStr)
+				float xRot, yRot, zRot, wRot;
+				if (positionsFileRforTeleportation >> xStr >> yStr >> zStr && rotationsFileRforTeleportation >> xRot >> yRot >> zRot >> wRot)
 				{
 					Vector3 playerPosDest;
 					playerPosDest.x = atof(xStr.c_str());
@@ -112,8 +120,13 @@ void ScriptMain()
 					playerPosDest.z = atof(zStr.c_str());
 
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPosDest.x, playerPosDest.y, playerPosDest.z);
+					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+					// in order to prevent the character from rotating to the last input direction
+					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPosDest.x, playerPosDest.y, playerPosDest.z);
+					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot); 
 				}
 
+				rotationsFileRforTeleportation.close();
 				positionsFileRforTeleportation.close();
 			} catch (std::exception &e)
 			{
@@ -135,12 +148,14 @@ void ScriptMain()
 					{
 						// doesnt overwrite the file
 						positionsDBFileW.open(routeFilePath, std::ios_base::app);	// open file in append mode
+						playerRotationsStreamW.open(playerRotationsFilename, std::ios_base::app);
 						notificationOnLeft("Player position recording has restarted!");
 					}
 					else
 					{
 						// overwrites the file
 						positionsDBFileW.open(routeFilePath);// open file in overwrite mode
+						playerRotationsStreamW.open(playerRotationsFilename);
 						notificationOnLeft("Player position recording has started!");
 					}
 
@@ -149,6 +164,7 @@ void ScriptMain()
 				else
 				{
 					positionsDBFileW.close();	// close file
+					playerRotationsStreamW.close();
 					recordingPositions = false;
 					notificationOnLeft("Player position recording has finished!");
 				}
@@ -174,6 +190,11 @@ void ScriptMain()
 
 				// write current player position to the text file
 				positionsDBFileW << std::to_string(playerCurrentPos.x) + " " + std::to_string(playerCurrentPos.y) + " " + std::to_string(playerCurrentPos.z) + "\n";
+
+				float rotx, roty, rotz, rotw;
+				ENTITY::GET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), &rotx, &roty, &rotz, &rotw);
+
+				playerRotationsStreamW << std::to_string(rotx) + " " + std::to_string(roty) + " " + std::to_string(rotz) + " " + std::to_string(rotw) + "\n";
 
 				haveRecordedPositions = true;
 
@@ -211,6 +232,7 @@ void ScriptMain()
 							positionsFileNumberOfLines = CheckNumberOfLinesInFile(routeFilePath);
 
 							positionsDBFileR.open(routeFilePath);	// open file
+							playerRotationsStreamR.open(playerRotationsFilename);
 							gatheringLidarData = true;
 
 							if (!hasAlreadygatherDataInCurrentSession)
@@ -226,6 +248,7 @@ void ScriptMain()
 						}
 						else
 						{
+							playerRotationsStreamR.close();
 							positionsDBFileR.close();	// close file
 							gatheringLidarData = false;
 							notificationOnLeft("Lidar scanning was stopped before the end of the file!\n\nTo continue from the latest position, press F5 when ready!");
@@ -255,14 +278,21 @@ void ScriptMain()
 			if (elapsedTime > secondsBetweenLidarSnapshots)
 			{
 				std::string xStr, yStr, zStr;
+				float xRot, yRot, zRot, wRot;
 				// get next position to teleport to
-				if (positionsDBFileR >> xStr >> yStr >> zStr)
+				if (positionsDBFileR >> xStr >> yStr >> zStr && playerRotationsStreamR >> xRot >> yRot >> zRot >> wRot)
 				{
 					playerPos.x = atof(xStr.c_str());
 					playerPos.y = atof(yStr.c_str());
 					playerPos.z = atof(zStr.c_str());
 
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
+					// reorient the player in order for the pictures to start to be taken from the view of the player
+					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+
+					// in order to prevent the character from rotating to the last input direction
+					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
+					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
 
 					playerTeleported = true;
 				}
@@ -270,6 +300,7 @@ void ScriptMain()
 				{
 					gatheringLidarData = false;
 					positionsDBFileR.close();	// close file
+					playerRotationsStreamR.close();
 					notificationOnLeft("Lidar scanning completed!");
 				}
 			}
@@ -636,7 +667,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	Cam panoramicCam = CAM::CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", 1);
 	CAM::SET_CAM_FOV(panoramicCam, 90);
 	CAM::SET_CAM_ROT(panoramicCam, 0, 0, rot.z, 2);
-	CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightparam - halfCharacterHeight/*1.2*/, 1);
+	CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightparam - halfCharacterHeight, 1);
 	CAM::RENDER_SCRIPT_CAMS(1, 0, 0, 1, 0);
 	CAM::SET_CAM_ACTIVE(panoramicCam, true);
 	WAIT(50);
