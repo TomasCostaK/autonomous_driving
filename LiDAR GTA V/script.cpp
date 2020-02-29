@@ -421,7 +421,7 @@ Vector3 VectorProjectionOntoPlane(Vector3 vector, Vector3 planeNormalVector)
 	projOntoPlane.x = vector.x - vectorProjOntoNormal.x;
 	projOntoPlane.y = vector.y - vectorProjOntoNormal.y;
 	projOntoPlane.z = vector.z - vectorProjOntoNormal.z;
-	
+
 	return projOntoPlane;
 }
 
@@ -432,7 +432,7 @@ float VectorMagnitude3D(Vector3 u)
 
 float DotProduct3D(Vector3 u, Vector3 v)
 {
-	return (u.x*v.x + u.y*v.y + u.z*v.z)/(VectorMagnitude3D(u)*VectorMagnitude3D(v));
+	return (u.x*v.x + u.y*v.y + u.z*v.z) / (VectorMagnitude3D(u)*VectorMagnitude3D(v));
 }
 
 Vector3 MultScalarWithVector(float s, Vector3 v)
@@ -613,7 +613,7 @@ ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range, Vect
 	raycastCenterPos.y = playerPos.y;
 	raycastCenterPos.z = playerPos.z + raycastHeightparam;
 
-	
+
 	// dot product between (0, 0, 1) and the surface normal
 	//float dot = DotProduct3D(up, surfaceNormal);
 	//float groundAngle = std::acos(dot);
@@ -628,7 +628,7 @@ ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range, Vect
 	up.y = 0;
 	up.z = 1;
 	Vector3 forwardPointVecProjectedOntoXYplane = VectorProjectionOntoPlane(normalize(forwardPointVecProjectedOntoInclinedGround), normalize(up));
-	
+
 	// determine the angle between the point vector and the projected vector
 	float dot = DotProduct3D(normalize(forwardPointVecProjectedOntoInclinedGround), normalize(forwardPointVecProjectedOntoXYplane));
 	float angleBetweenPointVecAndGround_InRadians = std::acos(dot);
@@ -637,7 +637,7 @@ ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range, Vect
 
 	log << "Angle offset X: " + std::to_string(angleOffsetX) + "\n";
 	log << "Angle offset Z: " + std::to_string(angleOffsetZ) + "\n";
-	
+
 	log << "Ground plane angle: " + std::to_string(degrees) + "\n";
 
 	log << "Final angle: " + std::to_string(angleOffsetX + degrees) + "\n";
@@ -645,7 +645,7 @@ ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range, Vect
 	// convert angleOffset X and Z from degrees to radians
 	double rotationX2;
 
-	if (angleOffsetZ >= 90 && angleOffsetZ <= 270)
+	if (angleOffsetZ >= 135 && angleOffsetZ <= 315) // valores obtidos por tentativa e erro
 		rotationX2 = (angleOffsetX - degrees) * (M_PI / 180.0);
 	else
 		rotationX2 = (angleOffsetX + degrees) * (M_PI / 180.0);
@@ -693,11 +693,11 @@ Vector3 normalize(Vector3 v)
 {
 	float magnitude = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 
-	if (magnitude != 0)
+	if (magnitude != 0.)
 	{
 		v.x = v.x / magnitude;
-		v.y = v.x / magnitude;
-		v.z = v.x / magnitude;
+		v.y = v.y / magnitude;
+		v.z = v.z / magnitude;
 	}
 
 	return v;
