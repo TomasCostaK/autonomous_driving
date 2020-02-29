@@ -50,12 +50,22 @@ struct ProjectedPointData {
 // lidar scanning start functioon
 void lidar(	double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, int range, std::string filePath, double error, int errorDist,	std::ofstream& log);
 
-ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range);
+ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range, Vector3 surfaceNormal, std::ofstream& log);
 
 ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectFlags);
 
 // function to print in a string in the bottom left notifications of the game
 void notificationOnLeft(std::string notificationText);
+
+Vector3 VectorProjectionOntoPlane(Vector3 vector, Vector3 planeNormalVector);
+
+float DotProduct3D(Vector3 u, Vector3 v);
+
+float VectorMagnitude3D(Vector3 u);
+
+Vector3 normalize(Vector3 v);
+
+Vector3 MultScalarWithVector(float s, Vector3 v);
 
 std::ifstream& GotoLineInPositionsDBFile(std::ifstream& inputfile, unsigned int num);
 

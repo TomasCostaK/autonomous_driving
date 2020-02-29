@@ -38,12 +38,13 @@ std::ofstream labelsFileStreamW;
 std::ofstream labelsDetailedFileStreamW;
 std::ofstream playerRotationsStreamW;
 std::string playerRotationsFilename = lidarParentDir + "/_rotationsDB.txt";
+std::string playerRotationsXYZFilename = lidarParentDir + "/_rotationsDBxyz.txt";
 
 int positionsCounter = 0;							// number of recorded positions in the current instance of the game
 
-bool takeSnap = false;	
+bool takeSnap = false;
 bool playerTeleported = false;
-bool displayNotice = true;						
+bool displayNotice = true;
 bool recordingPositions = false;					// if position recording is taking place or not
 bool gatheringLidarData = false;					// if we are at the process of automatic LiDAR scanning
 bool haveRecordedPositions = false;					// true: when the user has recorded positions in the current instance of the game (enables the restart of the recordings from the last recorded position)
@@ -63,7 +64,7 @@ int snapshotsCounter = 0;							// number of lidar scans completed
 
 float halfCharacterHeight = 1.12;					// GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS() gives the player position (in the middle of the character model, and not at foot level); in meters
 float raycastHeightparam = 2.40;					// in meters (it's a parameter because it doesnt represent the real height)
-// real height ~ 1.70; determinar outras alturas reais por regra de 3 simples
+// real height ~ 1.70; determinar outras alturas reais por regra de 3 simples (raycastHeightparam ------ real height)
 
 // current player position for lidar scanning
 Vector3 playerPos;
@@ -90,7 +91,7 @@ void ScriptMain()
 	while (true)
 	{
 		// keyboar commands information
-		if(IsKeyJustUp(VK_F1))
+		if (IsKeyJustUp(VK_F1))
 		{
 			notificationOnLeft("- F2: teleport to the route starting position\n- F3: start/stop recording player position\n- F4: scripthook V menu\n- F5: start/stop automatic snapshots");
 		}
@@ -98,21 +99,25 @@ void ScriptMain()
 		// teleport the character to the start position of the route, or the route position from where the automatic scanning was interrupted/stopped
 		if (IsKeyJustUp(VK_F2) && !gatheringLidarData && !recordingPositions)
 		{
-			
+
 			try {
 				std::ifstream positionsFileRforTeleportation;
 				positionsFileRforTeleportation.open(routeFilePath);
 
+				///std::ifstream rotationsFileRforTeleportation;
+				///rotationsFileRforTeleportation.open(playerRotationsFilename);
+
 				std::ifstream rotationsFileRforTeleportation;
-				rotationsFileRforTeleportation.open(playerRotationsFilename);
+				rotationsFileRforTeleportation.open(playerRotationsXYZFilename);
 
 				GotoLineInPositionsDBFile(positionsFileRforTeleportation, snapshotsCounter + 1);
-				
+
 				// transport the player to the route position 
 				// this way the assets can load before the lidar scanning starts
 				std::string xStr, yStr, zStr;
 				float xRot, yRot, zRot, wRot;
-				if (positionsFileRforTeleportation >> xStr >> yStr >> zStr && rotationsFileRforTeleportation >> xRot >> yRot >> zRot >> wRot)
+				///if (positionsFileRforTeleportation >> xStr >> yStr >> zStr && rotationsFileRforTeleportation >> xRot >> yRot >> zRot >> wRot)
+				if (positionsFileRforTeleportation >> xStr >> yStr >> zStr && rotationsFileRforTeleportation >> xRot >> yRot >> zRot)
 				{
 					Vector3 playerPosDest;
 					playerPosDest.x = atof(xStr.c_str());
@@ -120,15 +125,20 @@ void ScriptMain()
 					playerPosDest.z = atof(zStr.c_str());
 
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPosDest.x, playerPosDest.y, playerPosDest.z);
-					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+					///ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+					ENTITY::SET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, 0, 0);
+
+
 					// in order to prevent the character from rotating to the last input direction
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPosDest.x, playerPosDest.y, playerPosDest.z);
-					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot); 
+					//ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot); 
+					ENTITY::SET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, 0, 0);
 				}
 
 				rotationsFileRforTeleportation.close();
 				positionsFileRforTeleportation.close();
-			} catch (std::exception &e)
+			}
+			catch (std::exception &e)
 			{
 				notificationOnLeft(e.what());
 				return;
@@ -168,7 +178,8 @@ void ScriptMain()
 					recordingPositions = false;
 					notificationOnLeft("Player position recording has finished!");
 				}
-			} catch (std::exception &e)
+			}
+			catch (std::exception &e)
 			{
 				notificationOnLeft(e.what());
 				return;
@@ -192,9 +203,15 @@ void ScriptMain()
 				positionsDBFileW << std::to_string(playerCurrentPos.x) + " " + std::to_string(playerCurrentPos.y) + " " + std::to_string(playerCurrentPos.z) + "\n";
 
 				float rotx, roty, rotz, rotw;
-				ENTITY::GET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), &rotx, &roty, &rotz, &rotw);
+				///ENTITY::GET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), &rotx, &roty, &rotz, &rotw);
+				Vector3 rot = ENTITY::GET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), 0);
 
-				playerRotationsStreamW << std::to_string(rotx) + " " + std::to_string(roty) + " " + std::to_string(rotz) + " " + std::to_string(rotw) + "\n";
+				rotx = rot.x;
+				roty = rot.y;
+				rotz = rot.z;
+
+				///playerRotationsStreamW << std::to_string(rotx) + " " + std::to_string(roty) + " " + std::to_string(rotz) + " " + std::to_string(rotw) + "\n";
+				playerRotationsStreamW << std::to_string(rotx) + " " + std::to_string(roty) + " " + std::to_string(rotz) + "\n";
 
 				haveRecordedPositions = true;
 
@@ -280,6 +297,7 @@ void ScriptMain()
 				std::string xStr, yStr, zStr;
 				float xRot, yRot, zRot, wRot;
 				// get next position to teleport to
+				///if (positionsDBFileR >> xStr >> yStr >> zStr && playerRotationsStreamR >> xRot >> yRot >> zRot >> wRot)
 				if (positionsDBFileR >> xStr >> yStr >> zStr && playerRotationsStreamR >> xRot >> yRot >> zRot >> wRot)
 				{
 					playerPos.x = atof(xStr.c_str());
@@ -288,11 +306,13 @@ void ScriptMain()
 
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
 					// reorient the player in order for the pictures to start to be taken from the view of the player
-					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+					///ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+					ENTITY::SET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, 0, 0);
 
-					// in order to prevent the character from rotating to the last input direction
+					// in order to prevent the character from automatically rotating to the last input direction, repeat the teleport and reorientation
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
-					ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+					///ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
+					ENTITY::SET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, 0, 0);
 
 					playerTeleported = true;
 				}
@@ -392,6 +412,39 @@ void ScriptMain()
 	}
 }
 
+Vector3 VectorProjectionOntoPlane(Vector3 vector, Vector3 planeNormalVector)
+{
+	Vector3 vectorProjOntoNormal = MultScalarWithVector(DotProduct3D(vector, planeNormalVector) / VectorMagnitude3D(planeNormalVector), planeNormalVector);
+
+	// vector projection onto plane
+	Vector3 projOntoPlane;
+	projOntoPlane.x = vector.x - vectorProjOntoNormal.x;
+	projOntoPlane.y = vector.y - vectorProjOntoNormal.y;
+	projOntoPlane.z = vector.z - vectorProjOntoNormal.z;
+	
+	return projOntoPlane;
+}
+
+float VectorMagnitude3D(Vector3 u)
+{
+	return sqrt((u.x*u.x) + (u.y*u.y) + (u.z*u.z));
+}
+
+float DotProduct3D(Vector3 u, Vector3 v)
+{
+	return (u.x*v.x + u.y*v.y + u.z*v.z)/(VectorMagnitude3D(u)*VectorMagnitude3D(v));
+}
+
+Vector3 MultScalarWithVector(float s, Vector3 v)
+{
+	Vector3 result;
+	result.x = s * v.x;
+	result.y = s * v.y;
+	result.z = s * v.z;
+
+	return result;
+}
+
 int CheckNumberOfLinesInFile(std::string filename)
 {
 	// https://stackoverflow.com/questions/3072795/how-to-count-lines-of-a-file-in-c
@@ -399,7 +452,7 @@ int CheckNumberOfLinesInFile(std::string filename)
 	return std::count(std::istreambuf_iterator<char>(inFile), std::istreambuf_iterator<char>(), '\n');
 }
 
-std::ifstream& GotoLineInPositionsDBFile(std::ifstream& inputfile, unsigned int num) 
+std::ifstream& GotoLineInPositionsDBFile(std::ifstream& inputfile, unsigned int num)
 {
 	if (num == 0)
 	{
@@ -502,12 +555,12 @@ ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectF
 	int rayHandle = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(source.x, source.y, source.z, targetX, targetY, targetZ, intersectFlags, PLAYER::PLAYER_PED_ID(), 7);
 	int hit = 0;
 	int hitEntityHandle = -1;
-	
+
 	Vector3 hitCoordinates;
 	hitCoordinates.x = 0;
 	hitCoordinates.y = 0;
 	hitCoordinates.z = 0;
-	
+
 	Vector3 surfaceNormal;
 	surfaceNormal.x = 0;
 	surfaceNormal.y = 0;
@@ -537,30 +590,117 @@ ray raycast(Vector3 source, Vector3 direction, float maxDistance, int intersectF
 		}
 		result.entityTypeId = entityType;
 	}
-	
+
 	result.entityTypeName = entityTypeName;
 	return result;
 }
 
-ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range) 
+ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range, Vector3 surfaceNormal, std::ofstream& log)
 {
 	Vector3 rot = CAM::GET_GAMEPLAY_CAM_ROT(2);
-	double rotationX = (/*rot.x + */angleOffsetX) * (M_PI / 180.0);
-	double rotationZ = (/*rot.z + */angleOffsetZ) * (M_PI / 180.0);
+	double rotationX = (/*rot.x + */ angleOffsetX) * (M_PI / 180.0);
+	double rotationZ = (/*rot.z + */ angleOffsetZ) * (M_PI / 180.0);
 	double multiplyXY = abs(cos(rotationX));
 	Vector3 direction;
 	direction.x = sin(rotationZ) * multiplyXY * -1;
 	direction.y = cos(rotationZ) * multiplyXY;
 	direction.z = sin(rotationX);
 
+	log << std::string("Lidar ray direction BEFORE: (") + std::to_string(direction.x) + ", " + std::to_string(direction.y) + ", " + std::to_string(direction.z) + ") \n";
+
 	Vector3 raycastCenterPos;
 	raycastCenterPos.x = playerPos.x;
 	raycastCenterPos.y = playerPos.y;
 	raycastCenterPos.z = playerPos.z + raycastHeightparam;
 
-	ray result = raycast(raycastCenterPos, direction, range, -1);
 	
-	return result;
+	// dot product between (0, 0, 1) and the surface normal
+	//float dot = DotProduct3D(up, surfaceNormal);
+	//float groundAngle = std::acos(dot);
+
+
+	// a point vector of the point cloud projected onto the ground plane
+	Vector3 forwardPointVecProjectedOntoInclinedGround = VectorProjectionOntoPlane(normalize(direction), normalize(surfaceNormal));
+
+	// projecao do point vector no plano xOy 
+	Vector3 up;
+	up.x = 0;
+	up.y = 0;
+	up.z = 1;
+	Vector3 forwardPointVecProjectedOntoXYplane = VectorProjectionOntoPlane(normalize(forwardPointVecProjectedOntoInclinedGround), normalize(up));
+	
+	// determine the angle between the point vector and the projected vector
+	float dot = DotProduct3D(normalize(forwardPointVecProjectedOntoInclinedGround), normalize(forwardPointVecProjectedOntoXYplane));
+	float angleBetweenPointVecAndGround_InRadians = std::acos(dot);
+
+	float degrees = angleBetweenPointVecAndGround_InRadians * (180 / M_PI);
+
+	log << "Angle offset X: " + std::to_string(angleOffsetX) + "\n";
+	log << "Angle offset Z: " + std::to_string(angleOffsetZ) + "\n";
+	
+	log << "Ground plane angle: " + std::to_string(degrees) + "\n";
+
+	log << "Final angle: " + std::to_string(angleOffsetX + degrees) + "\n";
+
+	// convert angleOffset X and Z from degrees to radians
+	double rotationX2;
+
+	if (angleOffsetZ >= 90 && angleOffsetZ <= 270)
+		rotationX2 = (angleOffsetX - degrees) * (M_PI / 180.0);
+	else
+		rotationX2 = (angleOffsetX + degrees) * (M_PI / 180.0);
+
+	double rotationZ2 = (angleOffsetZ) * (M_PI / 180.0);
+	double multiplyXY2 = abs(cos(rotationX2));
+	Vector3 direction2;
+	direction2.x = sin(rotationZ2) * multiplyXY2 * -1;
+	direction2.y = cos(rotationZ2) * multiplyXY2;
+	direction2.z = sin(rotationX2);
+
+
+	log << std::string("Lidar ray direction AFTER: (") + std::to_string(direction2.x) + ", " + std::to_string(direction2.y) + ", " + std::to_string(direction2.z) + ") \n";
+	log << "------------------------- \n\n";
+
+	//ray result;
+	//if (surfaceNormal.x == 0 && surfaceNormal.y == 0 && surfaceNormal.z == 0) // no ground detected bellow player
+	//{
+	return  raycast(raycastCenterPos, direction2, range, -1);
+	//}
+	//else
+	/*{
+
+		// dot product between (0, 0, 1) and the surface normal
+		float dot = DotProduct3D(up, surfaceNormal);
+
+		float groundAngle = std::acos(dot);
+
+		log << "Ground plane angle: " + std::to_string(groundAngle);
+
+		// rotate vector on the y axis
+
+
+		//Vector3 forwardVecParallelToGround = VectorProjectionOntoPlane(direction, surfaceNormal);
+
+		//log << std::string("Lidar ray direction projected to ground: (") + std::to_string(forwardVecParallelToGround.x) + ", " + std::to_string(forwardVecParallelToGround.y) + ", " + std::to_string(forwardVecParallelToGround.z) + ") \n\n";
+
+		result = raycast(raycastCenterPos, forwardVecParallelToGround, range, -1);
+	}*/
+
+	//return result;
+}
+
+Vector3 normalize(Vector3 v)
+{
+	float magnitude = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+
+	if (magnitude != 0)
+	{
+		v.x = v.x / magnitude;
+		v.y = v.x / magnitude;
+		v.z = v.x / magnitude;
+	}
+
+	return v;
 }
 
 int GetEncoderClsid(WCHAR* format, CLSID* pClsid)
@@ -658,11 +798,52 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	centerDot.y = playerPos.y;
 	centerDot.z = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightparam - halfCharacterHeight).z;
 
+	// How to rotate the camera to look at a direction parallel to the ground plane
+	// GOAL: discover the forward direction vector (of the player characted) parallel to the ground plane
+	// 1º) Find the surface normal
+	Vector3 origin_playerPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 0);
+	Vector3 rayDirection;
+	rayDirection.x = 0;
+	rayDirection.y = 0;
+	rayDirection.z = -1;
+
+	ray resultCheckGround = raycast(origin_playerPos, rayDirection, 2.5, -1);
+
+	//bool groundPlaneFound = false;
+	Vector3 surfaceNormal;
+	surfaceNormal.x = 0;
+	surfaceNormal.y = 0;
+	surfaceNormal.z = 0;
+
+	log << "--- Raycast Collided with ground: " + std::to_string(resultCheckGround.hit);
+
+	if (resultCheckGround.hit)
+	{
+		log << "Collision with ground check raycast: " + resultCheckGround.entityTypeName;
+
+		if (resultCheckGround.entityTypeName == "RoadsBuildings") // raycast collided with ground
+		{
+			surfaceNormal = resultCheckGround.surfaceNormal;
+			log << std::string("Surface normal: (") + std::to_string(surfaceNormal.x) + ", " + std::to_string(surfaceNormal.y) + ", " + std::to_string(surfaceNormal.z) + ") \n";
+			//groundPlaneFound = true;
+		}
+	}
+
+	/*Vector3 forwardVecParallelToGround;
+	// 2º) Project the forward vector of the character onto the ground plane
+	if (groundPlaneFound)
+	{
+		forwardVecParallelToGround = VectorProjectionOntoPlane(ENTITY::GET_ENTITY_FORWARD_VECTOR(PLAYER::PLAYER_PED_ID()), surfaceNormal);
+	}*/
+
+
+
+
 	int resolutionX, resolutionY;
 	GRAPHICS::GET_SCREEN_RESOLUTION(&resolutionX, &resolutionY);
 
 	//Set camera on top of player
-	log << "Setting up camera...";
+	log << "Setting up camera... !";
 	Vector3 rot = CAM::GET_GAMEPLAY_CAM_ROT(0);
 	Cam panoramicCam = CAM::CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", 1);
 	CAM::SET_CAM_FOV(panoramicCam, 90);
@@ -688,12 +869,11 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	UI::DISPLAY_RADAR(false);
 
 	float x2d, y2d, err_x2d, err_y2d;
-	std::string vertexData = "", vertexDataPoints = "", vertexError = "", vertexErrorPoints = "";
 
 	GAMEPLAY::SET_TIME_SCALE(StopSpeed);
 	//Take 3D point cloud
 	log << "Taking 3D point cloud...\n";
-	
+
 	// paralel processing for obtaining all point cloud points
 	int nHorizontalSteps = (horiFovMax - horiFovMin) / horiStep;
 	int nVerticalSteps = (vertFovMax - vertFovMin) / vertStep;
@@ -715,14 +895,14 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 	int indexRowCounter = 0;
 	for (double x = vertFovMin; x < vertFovMax; x += vertStep)	// 0 to 360, in steps of 0.5 => 360/0.5 = 720 horizontal/circle points
-	{	
+	{
 		pointsPerVerticalStep[indexRowCounter] = 0;
-		
+
 		int indexColumnCounter = 0;
 
 		for (double z = horiFovMin; z < horiFovMax; z += horiStep)	// -15 to 12, in steps of 0.5 => (15+12)/0.5 = 74 vertical points for each horizontal angle
-		{			
-			ray result = angleOffsetRaycast(x, z, range);
+		{
+			ray result = angleOffsetRaycast(x, z, range, surfaceNormal, log);
 
 			// if the ray collided with something, register the distance between the collition point and the ray origin
 			if (!(result.hitCoordinates.x == 0 && result.hitCoordinates.y == 0 && result.hitCoordinates.z == 0))
@@ -796,7 +976,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	//Set clear weather
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
 	GAMEPLAY::SET_OVERRIDE_WEATHER("CLEAR");
-	
+
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
 		rot.z = i * 120;
@@ -810,7 +990,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 		// Iterate through every point, determine if it's present in the current FoV, if it is project it onto the picture and assign the screenX, screenY and FoV id to the respective point
 		// This information is stored in the files LiDAR_PointCloud_error.txt and LiDAR_PointCloud_points.txt, to allow an external python script to correctly color the uncolored point cloud (based upon the 3 pictures taken)
 		log << "Converting 3D to 2D...";
-		
+
 		for (int k = 0; k < nVerticalSteps; k++)
 		{
 			for (int j = 0; j < nHorizontalSteps; j++)
@@ -853,7 +1033,6 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	log << "Writing to files...";
 	fileOutput << "ply\nformat ascii 1.0\nelement vertex " + std::to_string(k) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
 	fileOutputError << "ply\nformat ascii 1.0\nelement vertex " + std::to_string(k) + "\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
-
 
 	// fill LiDAR_PointCloud_error.txt
 	for (int i = 0; i < nVerticalSteps; i++)
