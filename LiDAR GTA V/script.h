@@ -84,7 +84,11 @@ void readErrorFile(std::vector<double>& dist, std::vector<double>& error);
 
 std::vector<double> split(const std::string& s, char delimiter);
 
+void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, std::string filePath);
+
+void PostLidarScanProcessing(std::string filePath);
+
 // entry point to the mod
 void ScriptMain();
-
+void hhheee();
 #endif
