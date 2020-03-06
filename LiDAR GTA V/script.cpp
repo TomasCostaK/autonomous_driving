@@ -449,10 +449,6 @@ void ScriptMain()
 
 			try
 			{
-				//log.open(lidarLogFilePath);
-				//log.open(lidarLogFilePath, std::ios_base::app);		// append mode
-				//log << "Starting...\n";
-
 				double parameters[6];
 				int rangeRay;
 				int errorDist;
@@ -467,7 +463,7 @@ void ScriptMain()
 					notificationOnLeft("Input file not found. Please re-install the plugin.");
 					return;
 				}
-				//log << "Reading input file...\n";
+				log << "Reading configuration file...\n";
 				inputFile >> ignore >> ignore >> ignore >> ignore >> ignore;
 				for (int i = 0; i < 6; i++) {
 					inputFile >> ignore >> ignore >> parameters[i];
@@ -486,24 +482,8 @@ void ScriptMain()
 				// prepare for lidar scan
 				SetupGameForLidarScan(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5], newfolder + "/" + filename);
 
-				log << "setup done\n";
+				log << "Setup done\n";
 
-				//hasLidarScanStarted = true;
-				//log << "Starting LiDAR...\n";
-				//log.close();
-				
-				////lidar(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5], rangeRay, newfolder + "/" + filename, error, errorDist, log);
-				
-				//log << "SUCCESS!!!";
-				//log.close();
-
-				/*if (isAutoScanning)
-				{
-					int percentageComplete = ((float)snapshotsCounter) / ((float)positionsFileNumberOfLines) * 100;
-					notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter) + "\n\nCompleted: " + std::to_string(percentageComplete) + "%");
-				}*/
-
-				//scanLive = false;
 				log.close();
 			}
 			catch (std::exception &e)
@@ -554,14 +534,9 @@ void ScriptMain()
 				lidarScanPrep = false;
 				PostLidarScanProcessing(newfolder + "/" + filename);
 
-				//if (isAutoScanning)
-				//{
 				int percentageComplete = ((float)snapshotsCounter) / ((float)positionsFileNumberOfLines) * 100;
 				notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter) + "\n\nCompleted: " + std::to_string(percentageComplete) + "%");
-				//}
 			}
-
-			//scanLive = false;
 		}
 
 		WAIT(0);
@@ -824,11 +799,6 @@ int SaveScreenshot(std::string filename, ULONG uQuality = 100)
 	return iRes;
 }
 
-//scanLive = false;
-
-
-
-
 // this function is pnly called once at the beginning of each lidar scan
 void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, std::string filePath)
 {
@@ -904,8 +874,6 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 
 void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, int range, std::string filePath, double error, int errorDist, std::ofstream& log)
 {
-	// dividir o workload em varios frames, 
-
 	countFrames++;
 
 	int maxIndexRowCounterForThisFrame = std::ceil(nVerticalSteps / nWorkloadFrames) * countFrames;
@@ -915,20 +883,9 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 		maxIndexRowCounterForThisFrame = maxIndexRowCounterForThisFrame + (nVerticalSteps - maxIndexRowCounterForThisFrame);
 	}
 
-	log.open(lidarLogFilePath, std::ios_base::app);		// append mode
-
-	log << "maxIndexRowCounterForThisFrame: " + std::to_string(maxIndexRowCounterForThisFrame) + "\n";
-
-	log.close();
-
-	//log.open(lidarLogFilePath, std::ios_base::app);
 	try {
-		//int indexRowCounter = 0;
 		for (double x = xValue; x <= vertFovMax; x += vertStep)	// -15 to 12, in steps of 0.5 => (15+12)/0.5 = 74 vertical points for each horizontal angle
 		{
-			log.open(lidarLogFilePath, std::ios_base::app);
-			log << "x: " + std::to_string(x) + "\n";
-			log.close();
 			if (indexRowCounter == (maxIndexRowCounterForThisFrame+1))
 			{
 				// xValue stores the x value to be calculated in the next frame
@@ -942,57 +899,24 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 			for (double z = horiFovMin; z <= horiFovMax; z += horiStep)	 // 0 to 360, in steps of 0.5 => 360/0.5 = 720 horizontal/circle points
 			{
-				//log << "z: " + std::to_string(z) + "\n";
-
-				//log << "x: " + std::to_string(x) + ", z: " + std::to_string(z) + "\n";
-				//log << "----hey\n";
 				ray result = angleOffsetRaycast(x, z, range);
-
-				//log << "--sil...\n";
-
-				log.open(lidarLogFilePath, std::ios_base::app);
-				log << "Finished0\n";
-				log.close();
 
 				// if the ray collided with something, register the distance between the collition point and the ray origin
 				if (!(result.hitCoordinates.x == 0. && result.hitCoordinates.y == 0. && result.hitCoordinates.z == 0.))
 				{
-					//log << "--ho\n";
 					pointsMatrix[indexRowCounter][indexColumnCounter] = result.hitCoordinates;
-
-					/*log.open(lidarLogFilePath, std::ios_base::app);
-					log << "Finished1\n";
-					log.close();*/
 
 					//Introduce error in voxels
 					Vector3 xyzError;
 					introduceError(&xyzError, result.hitCoordinates.x - centerDot.x, result.hitCoordinates.y - centerDot.y, result.hitCoordinates.z - centerDot.z, error, errorDist, range, dist_vector, error_vector);
 
-					/*log.open(lidarLogFilePath, std::ios_base::app);
-					log << "Finished2\n";
-					log.close();*/
-
-					//log << "--dg...\n";
 					pointsWithErrorMatrix[indexRowCounter][indexColumnCounter] = xyzError;
-
-					/*log.open(lidarLogFilePath, std::ios_base::app);
-					log << "Finished3\n";
-					log.close();*/
 
 					// prints the object id. Each model/mesh of the game has its own id
 					labels[indexRowCounter][indexColumnCounter] = result.entityTypeId;
 					labelsDetailed[indexRowCounter][indexColumnCounter] = result.hitEntityHandle;
 
-					/*log.open(lidarLogFilePath, std::ios_base::app);
-					log << "Finished4\n";
-					log.close();*/
-
 					pointsPerVerticalStep[indexRowCounter]++; // a raycast only outputs a point when it hits something
-
-					/*log.open(lidarLogFilePath, std::ios_base::app);
-					log << "Finished5\n";
-					log.close();*/
-					//log << "--dang...\n";
 				}
 
 				indexColumnCounter++;
@@ -1003,21 +927,12 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	}
 	catch (std::exception &e)
 	{
-		//log << e.what();
 		return;
 	}
-
-	log.open(lidarLogFilePath, std::ios_base::app);
-	log << "Finished6 - final\n";
-	log.close();
-
-	//log.close();
 }
 
 void PostLidarScanProcessing(std::string filePath)
 {
-	//log << "---duh\n";
-
 	int k = 0; // counter for the number of points sampled
 	// count how many points the generated point cloud has
 	for (int i = 0; i < nVerticalSteps; i++)
@@ -1027,7 +942,6 @@ void PostLidarScanProcessing(std::string filePath)
 
 	//log << std::to_string(k) + " points filled.\nDone.\n";
 
-	
 	//Set clear weather
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
 	GAMEPLAY::SET_OVERRIDE_WEATHER("CLEAR");
@@ -1150,29 +1064,28 @@ void PostLidarScanProcessing(std::string filePath)
 		}
 	}
 
-	//log << "Done.\n";
+	
 	GAMEPLAY::SET_GAME_PAUSED(false);
 	TIME::PAUSE_CLOCK(false);
 	WAIT(10);
-	//log << "Done2.\n";
+	
 	fileOutput.close();
 	fileOutputPoints.close();
 	fileOutputError.close();
 	fileOutputErrorPoints.close();
 	labelsFileStreamW.close(); // close labels file
 	labelsDetailedFileStreamW.close();
-	//log << "Done3.\n";
+	
 	//Restore original camera
 	CAM::RENDER_SCRIPT_CAMS(0, 0, 0, 1, 0);
 	CAM::DESTROY_CAM(panoramicCam, 1);
-	//log << "Done4.\n";
-	//notificationOnLeft("LiDAR Point Cloud written to file.");
+	
 	//Unpause game
 	GAMEPLAY::SET_TIME_SCALE(NormalSpeed);
-	//log << "Done5.\n";
+	
 	//Restore HUD and Radar
 	UI::DISPLAY_RADAR(true);
 	UI::DISPLAY_HUD(true);
-	//log << "Done6.\n";
+	
 	//log.close();
 }
