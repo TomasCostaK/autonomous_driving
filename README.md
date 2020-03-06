@@ -45,7 +45,7 @@ In order to test this mod to generate colored 3D point cloud data, the follow st
     - "Cancel Recording" to **Numpad /**
 7. Close the menu and use the following keyboard shortcuts to execute the mod functionality:
     - **F1**: show a notification in the lower-left corner of the screen information about the mod key mappings
-    - **F2**: execute the manual LiDAR and camera snapshot
+    - **F2**: teleport character to the next scanning position
     - **F3**: start/stop the recording of the player position
     - **F5**: start/stop the automatic data gathering with LiDAR and camera
 8. After finishing the automatic LiDAR scanning, exit from GTA V and open the directory previously created in step 4. A sequence of directories by the names:
