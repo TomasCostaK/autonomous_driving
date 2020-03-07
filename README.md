@@ -6,7 +6,8 @@
 - [Software](#software)
 - [Testing](#testing)
 - [Visualization of point clouds](#visualization-of-point-clouds)
-- [Workflow for gathering point cloud data](#workflow-for-gathering-point-clooud-data)
+- [Workflow for gathering point cloud data](#workflow-for-gathering-point-cloud-data)
+- [TODO](#todo)
 - [Resources](#resources)
 
 ## Objective
@@ -67,6 +68,11 @@ To visualize a point cloud file with a **.ply** extension, the software **Blende
 Here is a demonstration of the process involved in obtaining sequential point clouds from GTA V:
 
 [![Watch the video](https://github.com/Diogo525/DL-Classification-using-3D-Point-Clouds/blob/master/_resources/thumbnail_workflow.PNG)](https://www.youtube.com/watch?v=r82ptMSAvQM)
+
+## TODO
+
+- Align camera with player direction
+- Complete the slope correction solution
 
 ## Resources
 
