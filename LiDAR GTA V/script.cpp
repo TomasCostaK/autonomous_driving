@@ -29,7 +29,7 @@ static std::uniform_real_distribution<double> distribution(-1.0, 1.0);
 using namespace Gdiplus;
 
 /**
-	File path global variables, include files for logging, lidar configurations, jitter generation, 
+	File path global variables, include files for logging, lidar configurations, jitter generation,
 	point cloud labeling, stored positions and rotations of vehicle route landmarks.
 **/
 std::string lidarParentDir = "LiDAR GTA V";
@@ -41,7 +41,7 @@ std::string routeFilePath = lidarParentDir + "/_positionsDB.txt";
 std::string playerRotationsFilename = lidarParentDir + "/_rotationsDB.txt";
 
 /**
-	Global output streams for storing pointcloud segmentation using 4 classes (background, vehicle, 
+	Global output streams for storing pointcloud segmentation using 4 classes (background, vehicle,
 	human and animals, game props) and segmenting by gameobject id (detailed).
 **/
 std::ofstream labelsFileStreamW;
@@ -69,7 +69,7 @@ bool lidarScanPrep = false;
 
 /**
 	State variable set when the user recorded positions in the current instance of the game.
-	When true, new recorded positions will be appended to previous ones. 
+	When true, new recorded positions will be appended to previous ones.
 **/
 bool haveRecordedPositions = false;
 
@@ -358,7 +358,7 @@ void ScriptMain()
 			//auto current_time = std::chrono::high_resolution_clock::now();
 
 			//double elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time_for_lidar_scanning).count();
-			
+
 			//std::string xStr, yStr, zStr;
 			float xPos, yPos, zPos;
 			float xRot, yRot, zRot;
@@ -409,7 +409,7 @@ void ScriptMain()
 				notificationOnLeft("Lidar scanning completed!");
 			}
 
-				
+
 		}
 
 		// if player was teleported, wait a few seconds before the LiDAR scanning starts
@@ -494,7 +494,7 @@ void ScriptMain()
 				return;
 			}
 		}
-		
+
 		if (scanLive && lidarScanPrep)
 		{
 			double parameters[6];
@@ -824,7 +824,7 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 	//int vertexCount = (horiFovMax - horiFovMin) * (1 / horiStep) * (vertFovMax - vertFovMin) * (1 / vertStep);		// theoretical vertex count (if all raycasts intercept with an object)
 
 	//log << " Done.\n";
-	
+
 	fileOutput.open(filePath + ".ply");
 	fileOutputPoints.open(filePath + "_points.txt");
 	fileOutputError.open(filePath + "_error.ply");
@@ -850,7 +850,7 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 	initial_value = 0;
 
 	// It's a vector containing no_of_rows vectors containing no_of_cols points.
-	pointsMatrix = std::vector<std::vector<Vector3>>(no_of_rows+1, std::vector<Vector3>(no_of_cols + 1));
+	pointsMatrix = std::vector<std::vector<Vector3>>(no_of_rows + 1, std::vector<Vector3>(no_of_cols + 1));
 	pointsWithErrorMatrix = std::vector<std::vector<Vector3>>(no_of_rows + 1, std::vector<Vector3>(no_of_cols + 1));
 	pointsProjectedMatrix = std::vector<std::vector<ProjectedPointData>>(no_of_rows + 1, std::vector<ProjectedPointData>(no_of_cols + 1));
 	pointsProjectedWithErrorMatrix = std::vector<std::vector<ProjectedPointData>>(no_of_rows + 1, std::vector<ProjectedPointData>(no_of_cols + 1));
@@ -886,7 +886,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	try {
 		for (double x = xValue; x <= vertFovMax; x += vertStep)	// -15 to 12, in steps of 0.5 => (15+12)/0.5 = 74 vertical points for each horizontal angle
 		{
-			if (indexRowCounter == (maxIndexRowCounterForThisFrame+1))
+			if (indexRowCounter == (maxIndexRowCounterForThisFrame + 1))
 			{
 				// xValue stores the x value to be calculated in the next frame
 				xValue = x;
@@ -899,7 +899,9 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 			for (double z = horiFovMin; z <= horiFovMax; z += horiStep)	 // 0 to 360, in steps of 0.5 => 360/0.5 = 720 horizontal/circle points
 			{
-				ray result = angleOffsetRaycast(x, z, range);
+				float cam_rotz = rot.z + z;
+
+				ray result = angleOffsetRaycast(x, cam_rotz, range);
 
 				// if the ray collided with something, register the distance between the collition point and the ray origin
 				if (!(result.hitCoordinates.x == 0. && result.hitCoordinates.y == 0. && result.hitCoordinates.z == 0.))
@@ -942,6 +944,8 @@ void PostLidarScanProcessing(std::string filePath)
 
 	//log << std::to_string(k) + " points filled.\nDone.\n";
 
+	float cam_rotz;
+
 	//Set clear weather
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
 	GAMEPLAY::SET_OVERRIDE_WEATHER("CLEAR");
@@ -951,8 +955,8 @@ void PostLidarScanProcessing(std::string filePath)
 	//Rotate camera 360 degrees and take screenshots
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
-		rot.z = i * 120;
-		CAM::SET_CAM_ROT(panoramicCam, 0, 0, rot.z, 2);
+		cam_rotz = rot.z + i * 120;
+		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 2);
 		WAIT(200);
 
 		//Save screenshot
@@ -969,8 +973,8 @@ void PostLidarScanProcessing(std::string filePath)
 	WAIT(100);
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
-		rot.z = i * 120;
-		CAM::SET_CAM_ROT(panoramicCam, 0, 0, rot.z, 2);
+		cam_rotz = rot.z + i * 120;
+		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 2);
 		WAIT(200);
 
 		//Save screenshot
@@ -984,8 +988,8 @@ void PostLidarScanProcessing(std::string filePath)
 
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
-		rot.z = i * 120;
-		CAM::SET_CAM_ROT(panoramicCam, 0, 0, rot.z, 2);
+		cam_rotz = rot.z + i * 120;
+		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 2);
 		WAIT(200);
 
 		//Save screenshot
@@ -1032,7 +1036,7 @@ void PostLidarScanProcessing(std::string filePath)
 		}
 		//log << "Done.\n";
 	}
-	
+
 	//log << "Deleting array...";
 	//log << "Done.\n";
 	//log << "Writing to files...";
@@ -1064,28 +1068,28 @@ void PostLidarScanProcessing(std::string filePath)
 		}
 	}
 
-	
+
 	GAMEPLAY::SET_GAME_PAUSED(false);
 	TIME::PAUSE_CLOCK(false);
 	WAIT(10);
-	
+
 	fileOutput.close();
 	fileOutputPoints.close();
 	fileOutputError.close();
 	fileOutputErrorPoints.close();
 	labelsFileStreamW.close(); // close labels file
 	labelsDetailedFileStreamW.close();
-	
+
 	//Restore original camera
 	CAM::RENDER_SCRIPT_CAMS(0, 0, 0, 1, 0);
 	CAM::DESTROY_CAM(panoramicCam, 1);
-	
+
 	//Unpause game
 	GAMEPLAY::SET_TIME_SCALE(NormalSpeed);
-	
+
 	//Restore HUD and Radar
 	UI::DISPLAY_RADAR(true);
 	UI::DISPLAY_HUD(true);
-	
+
 	//log.close();
 }
