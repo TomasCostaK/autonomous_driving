@@ -23,10 +23,16 @@ class GTASample:
     # file that contains point position (x, y, z), point projected (x, y) pixels, and the index of the view that it's projected on (0, 1, or 2)
     # the index 0 means front view image
     pc_projected_points_fn = "LiDAR_PointCloud_points.txt"
-    # original front view image file (res equal to the screen resolution - 1920x1080)
+    # original front view image file (res equal to the screen resolution - 1920x1080 in my case)
     fv_img_fn = "LiDAR_PointCloud_Camera_Print_Day_0.bmp"
-    # kitti size: 1224x370
-    fv_img_kitti_fn = "LiDAR_PointCloud_Camera_Print_Day_0_rect.png"
+    # image taken in gta, resolution equal to the screen
+    gta_img = None
+    # original image resolution taken by the kitti camera
+    kitti_cam_image = None
+    # properly transformed image view to be equal to the images present in the kitti dataset
+    kitti_image = None
+    # percentage of resize used to shrink the original image view resolution down to the resolution of the kitti camera
+    self.resize_percentage = None
 
     def __init__(self, sample_directory_path, character_rotation):
         '''
@@ -37,6 +43,11 @@ class GTASample:
         '''
         self.directory_path = sample_directory_path
         self.rotation_amount = self.degrees_to_rad(-character_rotation)  # rotation around z axis, in radians
+
+        #### Core calculations over image view ####
+        self.transform_image_as_kitti_dataset()
+
+        #### Core calculations over the point cloud ####
 
         # tuple list with all the points of the point cloud, each point is a tuple (x, y, z)
         # fill in the point cloud list
@@ -58,6 +69,21 @@ class GTASample:
         # and store the remaining points in a list of tuples
         self.fv_pc, self.fv_pc_labels, self.fv_pc_labels_detailed, self.fv_pc_projected = self.create_frontview_pc(self.point_projections)
 
+        #### Optional calculations over targeted objects/labels ####
+
+        # calculate bounding boxes around vehicles
+        self.calculate_vehicles_bounding_boxes()
+        
+        # calculate bounding boxes around pedestrians
+        self.calculate_pedestrians_bounding_boxes()
+        
+    #### Point cloud functions ####
+
+    def calculate_vehicles_bounding_boxes(self):
+        '''
+        Executes the pipeline for calculating the vehicles bounding boxes, 
+        the (mixX, maxX, minY, maxY) for every vehicle detected in the point cloud
+        '''
         # obtain a point cloud with only vehicles, correspondent detailed_labels list and projection list
         self.vehicles_pc, self.vehicles_detailed_labels, self.vehicles_projected = self.get_points_with_label(self.fv_pc, self.fv_pc_labels, self.fv_pc_labels_detailed, self.fv_pc_projected, 2)
 
@@ -70,10 +96,30 @@ class GTASample:
         # obtain dict where each vehicle will have a list of 4 values: mixX, maxX, minY, maxY
         self.dict_vehicles_2d_bb = self.calculate_2d_bb_around_same_labeled_objs(self.dict_with_vehicle_colored_points, self.vehicle_ids, self.dict_vehicle_projected_points)
 
-        print(self.dict_vehicles_2d_bb)
+        # dictionary with 2d bounding box coordinates for the kitti resize imgae view
+        self.dict_kitti_vehicles_2d_bb = self.calculate_new_2d_bounding_boxes_for_kitti_img(self.dict_vehicles_2d_bb)
 
-    # https://stackoverflow.com/questions/354038/how-do-i-check-if-a-string-is-a-number-float
+    def calculate_pedestrians_bounding_boxes(self):
+        '''
+        Executes the pipeline for calculating the pedestrians bounding boxes, 
+        the (mixX, maxX, minY, maxY) for every pedestrian detected in the point cloud
+        '''
+        # obtain a point cloud with only pedestrians, correspondent detailed_labels list and projection list
+        self.pedestrians_pc, self.pedestrians_detailed_labels, self.pedestrians_projected = self.get_points_with_label(self.fv_pc, self.fv_pc_labels, self.fv_pc_labels_detailed, self.fv_pc_projected, 1)
+
+        # obtain list with all different object ids in the pedestrians point cloud
+        self.pedestrian_ids = self.get_individual_objects_ids(self.pedestrians_detailed_labels)
+
+        # dictionary where each value is a list of point (with position + rgb) belonging to each pedestrian
+        self.dict_with_pedestrian_colored_points, self.dict_pedestrian_projected_points = self.get_individual_objects_dictionaries(self.pedestrians_pc, self.pedestrians_detailed_labels, self.pedestrian_ids, self.pedestrians_projected)
+
+        # obtain dict where each pedestrian will have a list of 4 values: mixX, maxX, minY, maxY
+        self.dict_pedestrians_2d_bb = self.calculate_2d_bb_around_same_labeled_objs(self.dict_with_pedestrian_colored_points, self.pedestrian_ids, self.dict_pedestrian_projected_points)
+
     def is_number(self, s):
+        '''
+        https://stackoverflow.com/questions/354038/how-do-i-check-if-a-string-is-a-number-float
+        '''
         try:
             float(s)
             return True
@@ -282,7 +328,7 @@ class GTASample:
             - attributes: to indicate what type of attributes are included in the points:
                 - c: each point has position + color (r, g, b)
         '''
-        with open(filename, "w") as the_file:
+        with open(os.path.join(self.directory_path, filename), "w") as the_file:
             header_lines = ["ply", "format ascii 1.0"]
             header_lines.append("element vertex " + str(len(tuple_list)))
             header_lines.append("property float x")
@@ -311,7 +357,7 @@ class GTASample:
             - attributes: to indicate what type of attributes are included in the points:
                 - c: each point has position + color (r, g, b)
         '''
-        with open(filename, "w") as the_file:
+        with open(os.path.join(self.directory_path, filename), "w") as the_file:
 
             count_points = 0
             for key in dict.keys():
@@ -355,7 +401,7 @@ class GTASample:
             - list of strings containing the file lines
         '''
         lines = []
-        with open(filename) as file_in:
+        with open(os.path.join(self.directory_path, filename)) as file_in:
             for line in file_in:
                 lines.append(line)
         return lines
@@ -369,7 +415,7 @@ class GTASample:
             - list of ints
         '''
         lines = []
-        with open(filename) as file_in:
+        with open(os.path.join(self.directory_path, filename)) as file_in:
             for line in file_in:
                 lines.append(int(line))
         return lines
@@ -384,7 +430,7 @@ class GTASample:
             - list of tuples containing the float values
         '''
         lines = []
-        with open(filename) as file_in:
+        with open(os.path.join(self.directory_path, filename)) as file_in:
             for line in file_in:
                 tmp_tuple = self.str_to_tuple(line) # contains all values as floats
                 tuple = ()  # can contain integer values
@@ -462,43 +508,227 @@ class GTASample:
 
         return rot_point_tuple_list
 
-    def show_objects_bounding_boxes(self, dict_bounding_box_2d_coords, image_view_fn, object_ids):
-        image  = cv2.imread(image_view_fn)  #np.zeros((1080, 1920, 3), np.uint8)
+    def show_image_view_with_2d_bounding_boxes(self, dict_bounding_box_2d_coords, image_opencv, object_ids, color = (0, 0, 255), window_title = "Bounding box results", window_size = 0.5):
+        '''
+        Open a window showing the 2d bounding boxes over the given image view.
+        '''
+        #image  = cv2.imread(os.path.join(self.directory_path, image_view_fn))  #np.zeros((1080, 1920, 3), np.uint8)
+        # copy opencv image variable to make the 2d bounding boxes not persistent
+        image_copy = image_opencv.copy()
 
         for i in object_ids:
             minx = dict_bounding_box_2d_coords[i][0]
             maxx = dict_bounding_box_2d_coords[i][1]
             miny = dict_bounding_box_2d_coords[i][2]
             maxy = dict_bounding_box_2d_coords[i][3]
-            cv2.rectangle(image, (int(minx), int(miny)), (int(maxx), int(maxy)), (0, 0, 255), 3)
+            cv2.rectangle(image_copy, (int(minx), int(miny)), (int(maxx), int(maxy)), color, 3)
 
-        cv2.imshow("Image", image)
+        # the bounding boxes are already drawn in the image, so they will also be resized according to the given amount
+        resized_image = cv2.resize(image_copy, (0,0), fx=window_size, fy=window_size) 
+
+        cv2.imshow(window_title + ", " + str(int(window_size*100)) + "% zoom", resized_image)
         print("Press any key to continue...")
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+    #### Image view functions ####
+
+    def image_resize(self, image, width = None, height = None, inter = cv2.INTER_AREA):
+        '''
+        From https://stackoverflow.com/questions/44650888/resize-an-image-without-distortion-opencv
+        '''
+        # initialize the dimensions of the image to be resized and
+        # grab the image size
+        dim = None
+        (h, w) = image.shape[:2]
+
+        # if both the width and height are None, then return the
+        # original image
+        if width is None and height is None:
+            return image
+
+        # check to see if the width is None
+        if width is None:
+            # calculate the ratio of the height and construct the
+            # dimensions
+            r = height / float(h)
+            dim = (int(w * r), height)
+
+        # otherwise, the height is None
+        else:
+            # calculate the ratio of the width and construct the
+            # dimensions
+            r = width / float(w)
+            dim = (width, int(h * r))
+
+        # resize the image
+        resized = cv2.resize(image, dim, interpolation = inter)
+
+        # return the resized image
+        return resized
+
+    # TODO
+    def point_cloud_scaling(self, scaling_factor):
+        pass
+
+    def transform_image_as_kitti_dataset(self):
+        '''
+        Make the image capture in gta the same dimensions as the images of the kitii dataset
+        '''
+        # load original image view
+        self.gta_img = cv2.imread(os.path.join(self.directory_path, self.fv_img_fn), cv2.IMREAD_UNCHANGED)
+
+        h_gta, w_gta, c_gta = self.gta_img.shape
+
+        self.kitti_cam_image = self.image_resize(self.gta_img, width = 1392)
+        h_kitti, w_kitti, c_kitti = self.kitti_cam_image.shape
+        print(self.kitti_cam_image.shape)
+
+        # cut height to 512 pixels (obtained the region of interest (roi)); maintain the same width
+        roi_desired_middle_height = 512
+        start_row = int((h_kitti-roi_desired_middle_height)/2)
+        roi_image = self.kitti_cam_image[start_row:start_row+roi_desired_middle_height, 0:w_kitti-1]
+        h_roi, w_roi, c_roi = roi_image.shape
+        
+        # kitti size: 1224x370
+        desired_rect_middle_width = 1224
+        desired_rect_middle_height = 370
+
+        start_rect_row = int((h_roi-desired_rect_middle_height)/2)
+        start_rect_column = int((w_roi-desired_rect_middle_width)/2)
+
+        self.kitti_image = roi_image[start_rect_row:start_rect_row+desired_rect_middle_height, start_rect_column:start_rect_column+desired_rect_middle_width]
+
+        calculate_shrink_percente(self)
 
 
-sample = GTASample('.', -133.792633)
+    def calculate_shrink_percente(self)
+        '''
+        Calculate how much the original (GTA) image shrinks to become the size of the kitti camera resolution
+        ''' 
+        original_height, original_width, original_channels = self.gta_img.shape
+        kitti_height, kitti_width, kitti_channels = self.kitti_cam_image.shape
 
-sample.save_ply_file("test_rotated.ply", sample.rotated_pc)
-
-sample.save_ply_file("test_trimmed.ply", sample.fv_pc)
-
-sample.save_ply_file("test_vehicles.ply", sample.vehicles_pc)
-
-sample.save_ply_file_from_dict("test_vehicles_colored.ply", sample.dict_with_vehicle_colored_points, attributes = 'c')
-
-sample.show_objects_bounding_boxes(sample.dict_vehicles_2d_bb, sample.fv_img_fn, sample.vehicle_ids)
+        self.resize_percentage = kci_w/original_width # 0.725
 
 
+    def calculate_new_2d_bounding_boxes_for_kitti_img(self, dict_2d_bounding_boxes, discard_trucated_boxes = True):
+        '''
+        Calculate 2d bounding boxes for the resized and cropped image views that match kitti's images.
+
+        TODO: Support for discard_truncated_boxes = false
+        TODO: discard the list of points belonging to objects where their 2d bounding boxes are out of bounds
+        '''
+        original_height, original_width, original_channels = self.gta_img.shape
+        kitti_height, kitti_width, kitti_channels = self.kitti_image.shape
+
+        '''
+        lr_bar_width
+        <-->
+         _____________________________
+        |      . p2                   |
+        |    _____________________    |
+        |   |   . p1              | . |
+        |   |_____________________| p3|
+        |                             |  | ub_bar_width
+        |_____________________________|  |
+        '''
+        print("original_width: " + str(original_width))
+        print("kitti_width: " + str(kitti_width))
+        kci_h, kci_w, kci_c = self.kitti_cam_image.shape
+
+        lr_bar = int((kci_w-kitti_width) / 2)
+        ub_bar = int((kci_h-kitti_height) / 2)
+        print("lr_bar_width: " + str(lr_bar))
+        print("ub_bar_height: " + str(ub_bar))
+
+        resize_percentage = kci_w/original_width # 0.725
+
+        dict_kitti_2d_bounding_boxes = {}
+        for i in dict_2d_bounding_boxes.keys():
+            print("before: minX=" + str(dict_2d_bounding_boxes[i][0]) + ", maxX=" + str(dict_2d_bounding_boxes[i][1]) + ", minY=" + str(dict_2d_bounding_boxes[i][2]) + ", maxY=" + str(dict_2d_bounding_boxes[i][3]))
+            # minX
+            minX = math.ceil(dict_2d_bounding_boxes[i][0]*resize_percentage) - lr_bar
+            # maxX
+            maxX = math.ceil(dict_2d_bounding_boxes[i][1]*resize_percentage) - lr_bar
+            # minY
+            minY = math.ceil(dict_2d_bounding_boxes[i][2]*resize_percentage) - ub_bar
+            # maxY
+            maxY = math.ceil(dict_2d_bounding_boxes[i][3]*resize_percentage) - ub_bar
+            print("after: minX=" + str(minX) + ", maxX=" + str(maxX) + ", minY=" + str(minY) + ", maxY=" + str(maxY))
+            # check if out of bound (not inside the kitti dimensions)
+            #if  (minX < lr_bar_width or minX >= lr_bar_width+kitti_width) or (maxX < lr_bar_width or maxX >= lr_bar_width+kitti_width) or (minY < ub_bar_height or minY >= ub_bar_height+kitti_height) or (maxY < ub_bar_height or maxY >= ub_bar_height+kitti_height):
+            #    if discard_trucated_boxes: # discard/ignore bounding box because it's out of bounds
+            #        continue
+            dict_kitti_2d_bounding_boxes[i] = []
+            dict_kitti_2d_bounding_boxes[i].append(minX)
+            dict_kitti_2d_bounding_boxes[i].append(maxX)
+            dict_kitti_2d_bounding_boxes[i].append(minY)
+            dict_kitti_2d_bounding_boxes[i].append(maxY)
+
+        return dict_kitti_2d_bounding_boxes
+
+
+    def show_kitti_image(self, window_title = "Image view with the kitti resolution", window_size = 0.5):
+        '''
+        Open window showing the transformed GTA image view into the resolution used in the kitti dataset
+        '''
+        resized_image = cv2.resize(self.kitti_image, (0,0), fx=window_size, fy=window_size) 
+
+        cv2.imshow(window_title + ", " + str(int(window_size*100)) + "% zoom", resized_image)
+        print("Press any key to continue...")
+        cv2.waitKey(0)
+        
+
+    def save_kitti_image(self, filename = None):
+        '''
+        Save kitti image.
+        '''
+        if filename is None:
+            filename = self.fv_img_fn.split(".")[0] + "_kitti.bmp"
+            
+        cv2.imwrite(os.path.join(self.directory_path, filename), self.kitti_image)
 
 
 
 
+sample = GTASample('./Sample1/', -133.792633)
+
+#sample.save_ply_file("test_rotated.ply", sample.rotated_pc)
+
+#sample.save_ply_file("test_trimmed.ply", sample.fv_pc)
+
+#sample.save_ply_file("test_vehicles.ply", sample.vehicles_pc)
+
+#sample.save_ply_file_from_dict("test_vehicles_colored.ply", sample.dict_with_vehicle_colored_points, attributes = 'c')
+
+# open window with image + bounding boxes
+sample.show_image_view_with_2d_bounding_boxes(sample.dict_vehicles_2d_bb, sample.gta_img, sample.vehicle_ids, color = (0, 0, 255), window_title = "Vehicles bounding boxes in gta image", window_size=0.6)
+
+sample.show_image_view_with_2d_bounding_boxes(sample.dict_kitti_vehicles_2d_bb, sample.kitti_image, sample.vehicle_ids, color = (0, 0, 255), window_title = "Vehicles bounding boxes in kitti image", window_size=0.6)
+
+#sample.show_image_view_with_2d_bounding_boxes(sample.dict_pedestrians_2d_bb, sample.fv_img_fn, sample.pedestrian_ids, window_title = "Pedestrians bounding boxes")
+
+# show image without bounding boxes
+#sample.show_kitti_image()
+
+sample.save_kitti_image()
 
 
+'''
+        shrink_percent_width = kitti_width / original_width
+        shrink_percent_height = kitti_height / original_height
 
+        dict_kitti_2d_bounding_boxes = {}
+        for i in dict_2d_bounding_boxes.keys():
+            dict_kitti_2d_bounding_boxes[i] = []
+            dict_kitti_2d_bounding_boxes[i].append(int(dict_2d_bounding_boxes[i][0] * shrink_percent_width))
+            dict_kitti_2d_bounding_boxes[i].append(int(dict_2d_bounding_boxes[i][1] * shrink_percent_width))
+            dict_kitti_2d_bounding_boxes[i].append(int(dict_2d_bounding_boxes[i][2] * shrink_percent_height))
+            dict_kitti_2d_bounding_boxes[i].append(int(dict_2d_bounding_boxes[i][3] * shrink_percent_height))
+        
+        print(dict_kitti_2d_bounding_boxes)
+        '''
 
 
 
