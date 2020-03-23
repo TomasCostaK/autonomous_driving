@@ -4,6 +4,7 @@ import numpy as np
 import random
 import cv2
 import os.path
+import numpy as np
 from PCRaw import PCRaw
 from PCLabeledObject import PCLabeledObject
 from GTAView import GTAView
@@ -29,6 +30,9 @@ class GTASample:
     # original front view image file (res equal to the screen resolution - 1920x1080 in my case)
     fv_img_fn = "LiDAR_PointCloud_Camera_Print_Day_0.bmp"
 
+    # rotation of the character when lidar scan happened
+    rotation_fn = "LiDAR_PointCloud_rotation.txt"
+
     # PCraw instance containing all the raw point cloud information
     pc_raw_data = None
     # PCRaw instance containing all the points thar are projected onto the front view image
@@ -37,7 +41,7 @@ class GTASample:
     # GTAView object
     imageView = None
 
-    def __init__(self, sample_directory_path, character_rotation):
+    def __init__(self, sample_directory_path):
         '''
         Constructor
         Arguments:
@@ -45,6 +49,9 @@ class GTASample:
         - character_rotation: rotation (in degrees) of the in-game character when the lidar scanner happened
         '''
         self.directory_path = sample_directory_path
+
+        # a float
+        char_rotation = float(self.load_txt_file_into_str_list(self.rotation_fn)[0].split(' ')[2]) # retrieves "rotx roty rotz" from file
 
         self.imageView = GTAView(sample_directory_path, self.fv_img_fn)
 
@@ -63,13 +70,13 @@ class GTASample:
         # load file with the points + projected coords and view index
         point_projections = self.load_txt_file_into_tuple_float_list(self.pc_projected_points_fn, [3, 4, 5], [0, 1, 2])   # 3, 4, 5 correspond to integer values of projx,, projy, view_index
 
-        self.pc_raw_data = PCRaw(original_pc, point_labels, point_labels_detailed, point_projections, character_rot=character_rotation, debug_mode=True, pc_name="Original")
+        self.pc_raw_data = PCRaw(original_pc, point_labels, point_labels_detailed, point_projections, character_rot=char_rotation, debug_mode=True, pc_name="Original")
 
         # eliminate all points that are not projected onto the first view (index 0)
         # and store the remaining points in a list of tuples
         fv_pc, fv_pc_labels, fv_pc_labels_detailed, fv_pc_projected = self.create_frontview_pc(self.pc_raw_data.list_raw_pc, self.pc_raw_data.list_raw_labels, self.pc_raw_data.list_raw_detailed_labels, self.pc_raw_data.list_raw_projected_points)
 
-        self.pc_fv_raw_data = PCRaw(fv_pc, fv_pc_labels, fv_pc_labels_detailed, fv_pc_projected,character_rot=character_rotation, debug_mode=True, pc_name="Front view")
+        self.pc_fv_raw_data = PCRaw(fv_pc, fv_pc_labels, fv_pc_labels_detailed, fv_pc_projected,character_rot=char_rotation, debug_mode=True, pc_name="Front view")
 
     def load_ply_file_into_tuple_list(self, filename):
         '''
@@ -148,6 +155,22 @@ class GTASample:
                 lines.append(tuple)
 
         return lines
+
+    def load_kitti_velodyne_file(self, file_path, include_luminance = False):
+        '''
+        Loads a kitti velodyne file (ex: 000000.bin) into a list of tuples, where each tuple has (x, y, z) or (x, y, z, l)
+        Argument:
+            - include_luminance: if the function should also store the pont intensisty value in the list of points
+        '''
+        # Source: https://github.com/hunse/kitti/blob/master/kitti/velodyne.py
+        points = np.fromfile(file_path, dtype=np.float32).reshape(-1, 4)
+        points = points[:, :3]  # exclude luminance
+
+        point_tuple_list = []
+        for i in range(len(points)):
+            point_tuple_list.append((points[i][0], points[i][1], points[i][2],))
+
+        return point_tuple_list
 
     def save_ply_file(self, filename, tuple_list, attributes = None):
         '''

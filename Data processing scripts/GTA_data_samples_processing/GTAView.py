@@ -203,7 +203,7 @@ class GTAView:
             maxx = dict_bounding_box_2d_coords[i][1]
             miny = dict_bounding_box_2d_coords[i][2]
             maxy = dict_bounding_box_2d_coords[i][3]
-            cv2.rectangle(image_copy, (int(minx), int(miny)), (int(maxx), int(maxy)), color, 3)
+            cv2.rectangle(image_copy, (int(minx), int(miny)), (int(maxx), int(maxy)), color, 2)
 
         # the bounding boxes are already drawn in the image, so they will also be resized according to the given amount
         resized_image = cv2.resize(image_copy, (0,0), fx=window_size, fy=window_size) 
