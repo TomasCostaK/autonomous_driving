@@ -39,6 +39,7 @@ std::string lidarErrorDistFilePath = lidarParentDir + "/dist_error.csv";
 std::string lidarPointLabelsFilePath = lidarParentDir + "/pointcloudLabels.txt";
 std::string routeFilePath = lidarParentDir + "/_positionsDB.txt";
 std::string playerRotationsFilename = lidarParentDir + "/_rotationsDB.txt";
+std::string playerRotationInSampleFilename = "_rotation.txt";
 
 /**
 	Global output streams for storing pointcloud segmentation using 4 classes (background, vehicle,
@@ -52,6 +53,8 @@ std::ofstream playerRotationsStreamW;				// Output stream for storing player rot
 
 // Number of currently recorded positions (initiated by pressing the F3 key).
 int positionsCounter = 0;
+
+int rangeRay = 200;
 
 /**
 	State variable for when a new lidar scan is going to happen.
@@ -81,7 +84,6 @@ bool hasStartedAndStoppedAutoScan = false;			// State variable that stores if th
 float halfCharacterHeight = 1.12;					// Fixed value. GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS() gives the player's position (at the middle of the character model, and not at foot level); in meters.
 float raycastHeightParam = 2.40;					// This variable is used to adjust the height at which to position the origin of the lidar coordinate system. 
 													// The 2.40 meters in-game corresponds to 1.70m in real life (it already takes into account the halfCharacterHeight value).
-
 /**
 	Automatic lidar scanning global variables.
 **/
@@ -92,20 +94,14 @@ float secondsBetweenRecordings = 2;					// seconds between position recording
 // lidar scanning
 int secondsToWaitAfterTeleport = 5;
 
-
-
 int secondsBeforeStartingLidarScan = 2;				// in order for the scanning start to not be sudden
 //float secondsBetweenLidarSnapshots = 14;			// taking into account the time that the teleport, lidar scanning and snapshots take
-
 
 int positionsFileNumberOfLines = -1;				// number of lines of the file with the route
 int snapshotsCounter = 0;							// number of lidar scans completed
 
-
-
 // current player position for lidar scanning
 Vector3 playerPos;
-
 
 /* Stuff for lidar auto scanning process */
 
@@ -450,7 +446,7 @@ void ScriptMain()
 			try
 			{
 				double parameters[6];
-				int rangeRay;
+				// int rangeRay;
 				int errorDist;
 				double error;
 				std::string filename;		// name for the point cloud file (.ply) and it's parent directory
@@ -870,7 +866,10 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 	lidarScanPrep = true;
 }
 
-
+float distanceBetween3dPoints(Vector3 p1, Vector3 p2)
+{
+	return sqrt(pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2) + pow(p2.z - p1.z, 2));
+}
 
 void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, int range, std::string filePath, double error, int errorDist, std::ofstream& log)
 {
@@ -884,6 +883,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 	}
 
 	try {
+		//log.open(lidarLogFilePath, std::ios_base::app);
 		for (double x = xValue; x <= vertFovMax; x += vertStep)	// -15 to 12, in steps of 0.5 => (15+12)/0.5 = 74 vertical points for each horizontal angle
 		{
 			if (indexRowCounter == (maxIndexRowCounterForThisFrame + 1))
@@ -903,8 +903,23 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 				ray result = angleOffsetRaycast(x, cam_rotz, range);
 
+				/*Vector3 zero;
+				zero.x = 0;
+				zero.y = 0;
+				zero.z = 0;
+				Vector3 point;
+				point.x = result.hitCoordinates.x - centerDot.x;
+				point.y = result.hitCoordinates.y - centerDot.y;
+				point.z = result.hitCoordinates.z - centerDot.z;
+
+				float pointDistance = distanceBetween3dPoints(zero, point);*/
+
+				//log << "Distance: " + std::to_string(pointDistance) + "\n";
+				//log << "Hit: " + std::to_string(result.hitCoordinates.x) + ", " + std::to_string(result.hitCoordinates.y) + ", " + std::to_string(result.hitCoordinates.z) + "\n";
+				//log << "Center: " + std::to_string(centerDot.x) + ", " + std::to_string(centerDot.y) + ", " + std::to_string(centerDot.z) + "\n";
+
 				// if the ray collided with something, register the distance between the collition point and the ray origin
-				if (!(result.hitCoordinates.x == 0. && result.hitCoordinates.y == 0. && result.hitCoordinates.z == 0.))
+				if (!(result.hitCoordinates.x == 0.0 && result.hitCoordinates.y == 0.0 && result.hitCoordinates.z == 0.0))
 				{
 					pointsMatrix[indexRowCounter][indexColumnCounter] = result.hitCoordinates;
 
@@ -926,6 +941,7 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 			indexRowCounter++;
 		}
+		///log.close();
 	}
 	catch (std::exception &e)
 	{
@@ -946,23 +962,32 @@ void PostLidarScanProcessing(std::string filePath)
 
 	float cam_rotz;
 
+	Vector3 playerCurRot = ENTITY::GET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), 0);
+
 	//Set clear weather
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
 	GAMEPLAY::SET_OVERRIDE_WEATHER("CLEAR");
 	//Set time to midnight
 	TIME::SET_CLOCK_TIME(0, 0, 0);
 	WAIT(100);
+	std::ofstream log;
+	log.open(lidarLogFilePath, std::ios_base::app);
 	//Rotate camera 360 degrees and take screenshots
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
-		cam_rotz = rot.z + i * 120;
-		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 2);
+		log << "Cam before z rot: " + std::to_string(CAM::GET_CAM_ROT(panoramicCam, 1).z) + "\n";
+
+		cam_rotz = playerCurRot.z + i * 120;
+		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
+
+		log << "Cam after z rot: " + std::to_string(CAM::GET_CAM_ROT(panoramicCam, 1).z) + "\n";
 
 		//Save screenshot
 		std::string filename = filePath + "_Camera_Print_Night_" + std::to_string(i) + ".bmp";
 		SaveScreenshot(filename.c_str());
 	}
+	log.close();
 
 	//Set clear weather
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
@@ -973,8 +998,8 @@ void PostLidarScanProcessing(std::string filePath)
 	WAIT(100);
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
-		cam_rotz = rot.z + i * 120;
-		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 2);
+		cam_rotz = playerCurRot.z + i * 120;
+		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
 
 		//Save screenshot
@@ -988,8 +1013,8 @@ void PostLidarScanProcessing(std::string filePath)
 
 	for (int i = 0; i < 3; i++) {
 		//Rotate camera
-		cam_rotz = rot.z + i * 120;
-		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 2);
+		cam_rotz = playerCurRot.z + i * 120;
+		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
 
 		//Save screenshot
@@ -1048,26 +1073,36 @@ void PostLidarScanProcessing(std::string filePath)
 	{
 		for (int j = 0; j < pointsPerVerticalStep[i]; j++)
 		{
-			// vertexData; fill point cloud .ply
-			fileOutput << std::to_string(pointsMatrix[i][j].x - centerDot.x) + " " + std::to_string(pointsMatrix[i][j].y - centerDot.y) + " " + std::to_string(pointsMatrix[i][j].z - centerDot.z) + "\n";
+			if (!(pointsMatrix[i][j].x == 0.0 && pointsMatrix[i][j].y == 0.0 && pointsMatrix[i][j].z == 0.0))
+			{
+				// vertexData; fill point cloud .ply
+				fileOutput << std::to_string(pointsMatrix[i][j].x - centerDot.x) + " " + std::to_string(pointsMatrix[i][j].y - centerDot.y) + " " + std::to_string(pointsMatrix[i][j].z - centerDot.z) + "\n";
 
-			// fill LiDAR_PointCloud_points.txt
-			fileOutputPoints << std::to_string(pointsMatrix[i][j].x - centerDot.x) + " " + std::to_string(pointsMatrix[i][j].y - centerDot.y) + " " + std::to_string(pointsMatrix[i][j].z - centerDot.z) + " " + std::to_string(pointsProjectedMatrix[i][j].screenCoordX) + " " + std::to_string(pointsProjectedMatrix[i][j].screenCoordY) + " " + std::to_string(pointsProjectedMatrix[i][j].pictureId) + "\n";
+				// fill LiDAR_PointCloud_points.txt
+				fileOutputPoints << std::to_string(pointsMatrix[i][j].x - centerDot.x) + " " + std::to_string(pointsMatrix[i][j].y - centerDot.y) + " " + std::to_string(pointsMatrix[i][j].z - centerDot.z) + " " + std::to_string(pointsProjectedMatrix[i][j].screenCoordX) + " " + std::to_string(pointsProjectedMatrix[i][j].screenCoordY) + " " + std::to_string(pointsProjectedMatrix[i][j].pictureId) + "\n";
 
-			// fill point cloud with errors .ply
-			fileOutputError << std::to_string(pointsWithErrorMatrix[i][j].x) + " " + std::to_string(pointsWithErrorMatrix[i][j].y) + " " + std::to_string(pointsWithErrorMatrix[i][j].z) + "\n";
+				// fill point cloud with errors .ply
+				fileOutputError << std::to_string(pointsWithErrorMatrix[i][j].x) + " " + std::to_string(pointsWithErrorMatrix[i][j].y) + " " + std::to_string(pointsWithErrorMatrix[i][j].z) + "\n";
 
-			// fill LiDAR_PointCloud_error.txt
-			fileOutputErrorPoints << std::to_string(pointsWithErrorMatrix[i][j].x) + " " + std::to_string(pointsWithErrorMatrix[i][j].y) + " " + std::to_string(pointsWithErrorMatrix[i][j].z) + " " + std::to_string(pointsProjectedWithErrorMatrix[i][j].screenCoordX) + " " + std::to_string(pointsProjectedWithErrorMatrix[i][j].screenCoordY) + " " + std::to_string(pointsProjectedWithErrorMatrix[i][j].pictureId) + "\n";
+				// fill LiDAR_PointCloud_error.txt
+				fileOutputErrorPoints << std::to_string(pointsWithErrorMatrix[i][j].x) + " " + std::to_string(pointsWithErrorMatrix[i][j].y) + " " + std::to_string(pointsWithErrorMatrix[i][j].z) + " " + std::to_string(pointsProjectedWithErrorMatrix[i][j].screenCoordX) + " " + std::to_string(pointsProjectedWithErrorMatrix[i][j].screenCoordY) + " " + std::to_string(pointsProjectedWithErrorMatrix[i][j].pictureId) + "\n";
 
-			// fill labels txt
-			labelsFileStreamW << std::to_string(labels[i][j]) + "\n";
+				// fill labels txt
+				labelsFileStreamW << std::to_string(labels[i][j]) + "\n";
 
-			// fill labels detailed txt
-			labelsDetailedFileStreamW << std::to_string(labelsDetailed[i][j]) + "\n";
+				// fill labels detailed txt
+				labelsDetailedFileStreamW << std::to_string(labelsDetailed[i][j]) + "\n";
+			}
 		}
 	}
 
+	Vector3 playerCurrentRot = ENTITY::GET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), 0);
+
+	// write to a file inside a sample, the rotation the the character is facing
+	std::ofstream sampleCharRotFileW;
+	sampleCharRotFileW.open(filePath + playerRotationInSampleFilename);
+	sampleCharRotFileW << std::to_string(playerCurrentRot.x) + " " + std::to_string(playerCurrentRot.y) + " " + std::to_string(playerCurrentRot.z);
+	sampleCharRotFileW.close();
 
 	GAMEPLAY::SET_GAME_PAUSED(false);
 	TIME::PAUSE_CLOCK(false);

@@ -88,7 +88,9 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 
 void PostLidarScanProcessing(std::string filePath);
 
+float distanceBetween3dPoints(Vector3 p1, Vector3 p2);
+
 // entry point to the mod
 void ScriptMain();
-void hhheee();
+
 #endif
