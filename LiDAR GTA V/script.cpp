@@ -82,7 +82,7 @@ bool hasStartedAndStoppedAutoScan = false;			// State variable that stores if th
 	Lidar height value definition.
 **/
 float halfCharacterHeight = 1.12;					// Fixed value. GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS() gives the player's position (at the middle of the character model, and not at foot level); in meters.
-float raycastHeightParam = 2.40;					// This variable is used to adjust the height at which to position the origin of the lidar coordinate system. 
+float raycastHeightParam = 2.2;					// This variable is used to adjust the height at which to position the origin of the lidar coordinate system. 
 													// The 2.40 meters in-game corresponds to 1.70m in real life (it already takes into account the halfCharacterHeight value).
 /**
 	Automatic lidar scanning global variables.
@@ -810,8 +810,8 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 	//log << "Setting up camera...";
 	rot = CAM::GET_GAMEPLAY_CAM_ROT(0);
 	panoramicCam = CAM::CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", 1);
-	CAM::SET_CAM_FOV(panoramicCam, 90);
-	CAM::SET_CAM_ROT(panoramicCam, 0, 0, rot.z, 2);
+	CAM::SET_CAM_FOV(panoramicCam, 70);
+	CAM::SET_CAM_ROT(panoramicCam, 0, 0, rot.z, 1);
 	CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightParam - halfCharacterHeight, 1);
 	CAM::RENDER_SCRIPT_CAMS(1, 0, 0, 1, 0);
 	CAM::SET_CAM_ACTIVE(panoramicCam, true);
