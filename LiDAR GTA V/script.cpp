@@ -15,6 +15,8 @@
 #include "direct.h"
 #include <stdlib.h>
 #include <chrono>
+#include <map>
+#include <list>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -40,6 +42,9 @@ std::string lidarPointLabelsFilePath = lidarParentDir + "/pointcloudLabels.txt";
 std::string routeFilePath = lidarParentDir + "/_positionsDB.txt";
 std::string playerRotationsFilename = lidarParentDir + "/_rotationsDB.txt";
 std::string playerRotationInSampleFilename = "_rotation.txt";
+std::string playerPosInSampleFilename = "_posInWorldCoords_modelCenter.txt";
+std::string vehiclesInSampleFilename = "_vehicles_dims.txt";	
+std::string lidarHeightFilename = "_lidarHeight.txt";
 
 /**
 	Global output streams for storing pointcloud segmentation using 4 classes (background, vehicle,
@@ -81,7 +86,7 @@ bool hasStartedAndStoppedAutoScan = false;			// State variable that stores if th
 /**
 	Lidar height value definition.
 **/
-float halfCharacterHeight = 1.12;					// Fixed value. GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS() gives the player's position (at the middle of the character model, and not at foot level); in meters.
+float halfCharacterHeight = 1.81;					// Fixed value. GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS() gives the player's position (at the middle of the character model, and not at foot level); in meters.
 float raycastHeightParam = 2.2;					// This variable is used to adjust the height at which to position the origin of the lidar coordinate system. 
 													// The 2.40 meters in-game corresponds to 1.70m in real life (it already takes into account the halfCharacterHeight value).
 /**
@@ -101,7 +106,7 @@ int positionsFileNumberOfLines = -1;				// number of lines of the file with the 
 int snapshotsCounter = 0;							// number of lidar scans completed
 
 // current player position for lidar scanning
-Vector3 playerPos;
+//Vector3 playerPos;
 
 /* Stuff for lidar auto scanning process */
 
@@ -259,8 +264,8 @@ void ScriptMain()
 			if (elapsedTime > secondsBetweenRecordings)
 			{
 				positionsCounter++;
-				// get player position + offset
-				Vector3 playerCurrentPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, -halfCharacterHeight);
+				// get player position (middle of the character model)
+				Vector3 playerCurrentPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 0);/*-halfCharacterHeight);*/
 
 				// write current player position to the text file
 				positionsDBFileW << std::to_string(playerCurrentPos.x) + " " + std::to_string(playerCurrentPos.y) + " " + std::to_string(playerCurrentPos.z) + "\n";
@@ -358,13 +363,13 @@ void ScriptMain()
 			//std::string xStr, yStr, zStr;
 			float xPos, yPos, zPos;
 			float xRot, yRot, zRot;
-			// get next position to teleport to
+			// get next position to teleport to, and teleport the character
 			///if (positionsDBFileR >> xStr >> yStr >> zStr && playerRotationsStreamR >> xRot >> yRot >> zRot >> wRot)
 			if (positionsDBFileR >> xPos >> yPos >> zPos && playerRotationsStreamR >> xRot >> yRot >> zRot)
 			{
-				Vector3 playerCurrentPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, -halfCharacterHeight);
+				//Vector3 playerCurrentPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, -halfCharacterHeight);
 
-				Vector3 playerCurrentRot = ENTITY::GET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), 0);
+				//Vector3 playerCurrentRot = ENTITY::GET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), 0);
 
 				/*playerPos.x = atof(xStr.c_str());
 				playerPos.y = atof(yStr.c_str());
@@ -372,27 +377,27 @@ void ScriptMain()
 				playerRot.x = atof(xRot.c_str());
 				playerRot.y = atof(yRot.c_str());
 				playerRot.z = atof(zRot.c_str());*/
-
+				Vector3 playerPos;
 				// update global variable
 				playerPos.x = xPos;
 				playerPos.y = yPos;
 				playerPos.z = zPos;
 
-				if (xPos != playerCurrentPos.x || yPos != playerCurrentPos.y || zPos != playerCurrentPos.z)
-				{
+				//if (xPos != playerCurrentPos.x || yPos != playerCurrentPos.y || zPos != playerCurrentPos.z)
+				//{
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
 					// reorient the player in order for the pictures to start to be taken from the view of the player
 					///ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
 					ENTITY::SET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, 0, 0);
-				}
+				//}
 
-				if (xRot != playerCurrentRot.x || yRot != playerCurrentRot.y || zRot != playerCurrentRot.z)
-				{
+				//if (xRot != playerCurrentRot.x || yRot != playerCurrentRot.y || zRot != playerCurrentRot.z)
+				//{
 					// in order to prevent the character from automatically rotating to the last input direction, repeat the teleport and reorientation
 					PED::SET_PED_COORDS_NO_GANG(PLAYER::PLAYER_PED_ID(), playerPos.x, playerPos.y, playerPos.z);
 					///ENTITY::SET_ENTITY_QUATERNION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, wRot);
 					ENTITY::SET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), xRot, yRot, zRot, 0, 0);
-				}
+				//}
 
 				playerTeleported = true;
 				isWaitAfterTeleportFinished = false;
@@ -476,7 +481,7 @@ void ScriptMain()
 				_mkdir(newfolder.c_str());
 
 				// prepare for lidar scan
-				SetupGameForLidarScan(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5], newfolder + "/" + filename);
+				SetupGameForLidarScan(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5], newfolder + "/" + filename, log);
 
 				log << "Setup done\n";
 
@@ -700,10 +705,10 @@ ray angleOffsetRaycast(double angleOffsetX, double angleOffsetZ, int range)
 	direction.y = cos(rotationZ) * multiplyXY;
 	direction.z = sin(rotationX);
 
-	Vector3 raycastCenterPos;
-	raycastCenterPos.x = playerPos.x;
-	raycastCenterPos.y = playerPos.y;
-	raycastCenterPos.z = playerPos.z + raycastHeightParam;
+	Vector3 raycastCenterPos = centerDot;//ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightParam - halfCharacterHeight);
+	//raycastCenterPos.x = playerPos.x;
+	//raycastCenterPos.y = playerPos.y;
+	//raycastCenterPos.z = playerPos.z + raycastHeightParam;
 
 	ray result = raycast(raycastCenterPos, direction, range, -1);
 
@@ -796,13 +801,33 @@ int SaveScreenshot(std::string filename, ULONG uQuality = 100)
 }
 
 // this function is pnly called once at the beginning of each lidar scan
-void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, std::string filePath)
+void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, std::string filePath, std::ofstream& log)
 {
 	readErrorFile(dist_vector, error_vector);
 
-	centerDot.x = playerPos.x;
-	centerDot.y = playerPos.y;
-	centerDot.z = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightParam - halfCharacterHeight).z;
+	centerDot = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightParam - halfCharacterHeight);
+
+	// write to file the lidar height 
+	std::ofstream sampleLidarHeightFileW;
+	sampleLidarHeightFileW.open(filePath + lidarHeightFilename);
+	Vector3 origin;
+	origin.x = centerDot.x;
+	origin.y = centerDot.y + 1;	// put the ray in front of the character model in order for ray to not collide with the character model
+	origin.z = centerDot.z;
+	Vector3 down;
+	down.x = 0;
+	down.y = 0;
+	down.z = -1;
+	ray lidarToGround = raycast(origin, down, 2.5, -1);
+	Vector3 collisionPoint = lidarToGround.hitCoordinates;
+	float distanceToGround = distanceBetween3dPoints(centerDot, collisionPoint);
+	sampleLidarHeightFileW << std::to_string(distanceToGround);
+	sampleLidarHeightFileW.close();
+
+	//log << "PLAYER entity alpha int: " + std::to_string(ENTITY::GET_ENTITY_ALPHA(PLAYER::PLAYER_PED_ID()));
+	
+	PLAYER::SET_PLAYER_INVINCIBLE(PLAYER::PLAYER_ID(), true);			// make player invincible
+	ENTITY::SET_ENTITY_ALPHA(PLAYER::PLAYER_PED_ID(), 0, true);			// make player invisible; alphaLevel between 0 and 255
 
 	GRAPHICS::GET_SCREEN_RESOLUTION(&resolutionX, &resolutionY);
 
@@ -871,6 +896,43 @@ float distanceBetween3dPoints(Vector3 p1, Vector3 p2)
 	return sqrt(pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2) + pow(p2.z - p1.z, 2));
 }
 
+// store the dimensions of different vehicles detected 
+std::map<Entity, std::string> vehiclesLookupTable;		// list of all the different entities encountered in the scene. Its going to have: "Entity	   Hash    Vector3 minDimCoords    Vector3 maxDimCoords   Posx   Posy   Posz    Rotx    Roty    Rotz"
+void addVehicleDims(Entity vehicleHandle, std::string entityType)
+{
+	if (entityType.compare("Vehicle") != 0)		// the entity is not a vehicle
+		return;
+
+	// check if vehicle is already in the dictionary, if so, ignore the point
+	if (vehiclesLookupTable.count(vehicleHandle) == 1) // if there is already 
+		return;
+
+	// get hash value of the corresponding vehicle model
+	Hash vehicleHash = ENTITY::GET_ENTITY_MODEL(vehicleHandle);
+
+	// get gameobject dimensions
+	Vector3 minCoords;
+	Vector3 maxCoords;
+
+	GAMEPLAY::GET_MODEL_DIMENSIONS(vehicleHash, &minCoords, &maxCoords);
+
+	Vector3 vehiclePos;
+
+	vehiclePos = ENTITY::GET_ENTITY_COORDS(vehicleHandle, 0);
+
+	Vector3 vehicleRot;
+
+	vehicleRot = ENTITY::GET_ENTITY_ROTATION(vehicleHandle, 1);
+
+	// insert vehicle into the dictionary
+	vehiclesLookupTable[vehicleHandle] = std::to_string(vehicleHandle) + " " + std::to_string(vehicleHash) + " " 
+		+ std::to_string(minCoords.x) + " " + std::to_string(minCoords.y) + " " + std::to_string(minCoords.z) + " "
+		+ std::to_string(maxCoords.x) + " " + std::to_string(maxCoords.y) + " " + std::to_string(maxCoords.z) + " "
+		+ std::to_string(vehiclePos.x - centerDot.x) + " " + std::to_string(vehiclePos.y - centerDot.z) + " " + std::to_string(vehiclePos.z - centerDot.z) + " "
+		+ std::to_string(vehicleRot.x) + " " + std::to_string(vehicleRot.y) + " " + std::to_string(vehicleRot.z) + " ";
+
+}
+
 void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertFovMax, double horiStep, double vertStep, int range, std::string filePath, double error, int errorDist, std::ofstream& log)
 {
 	countFrames++;
@@ -902,6 +964,8 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 				float cam_rotz = rot.z + z;
 
 				ray result = angleOffsetRaycast(x, cam_rotz, range);
+
+				addVehicleDims(result.hitEntityHandle, result.entityTypeName);
 
 				/*Vector3 zero;
 				zero.x = 0;
@@ -941,6 +1005,17 @@ void lidar(double horiFovMin, double horiFovMax, double vertFovMin, double vertF
 
 			indexRowCounter++;
 		}
+
+		// write scene vehicles dimensions to file
+		std::ofstream sampleCharRotFileW;
+		sampleCharRotFileW.open(filePath + vehiclesInSampleFilename);
+
+		for (const auto &myPair : vehiclesLookupTable) {
+			sampleCharRotFileW << myPair.second + "\n";
+		}
+
+		sampleCharRotFileW.close();
+
 		///log.close();
 	}
 	catch (std::exception &e)
@@ -963,7 +1038,7 @@ void PostLidarScanProcessing(std::string filePath)
 	float cam_rotz;
 
 	Vector3 playerCurRot = ENTITY::GET_ENTITY_ROTATION(PLAYER::PLAYER_PED_ID(), 0);
-
+	
 	//Set clear weather
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
 	GAMEPLAY::SET_OVERRIDE_WEATHER("CLEAR");
@@ -1104,6 +1179,11 @@ void PostLidarScanProcessing(std::string filePath)
 	sampleCharRotFileW << std::to_string(playerCurrentRot.x) + " " + std::to_string(playerCurrentRot.y) + " " + std::to_string(playerCurrentRot.z);
 	sampleCharRotFileW.close();
 
+	std::ofstream sampleCharPosFileW;
+	sampleCharPosFileW.open(filePath + playerPosInSampleFilename);
+	sampleCharPosFileW << std::to_string(centerDot.x) + " " + std::to_string(centerDot.y) + " " + std::to_string(ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0, 0, 0).z);
+	sampleCharPosFileW.close();
+
 	GAMEPLAY::SET_GAME_PAUSED(false);
 	TIME::PAUSE_CLOCK(false);
 	WAIT(10);
@@ -1125,6 +1205,7 @@ void PostLidarScanProcessing(std::string filePath)
 	//Restore HUD and Radar
 	UI::DISPLAY_RADAR(true);
 	UI::DISPLAY_HUD(true);
+	ENTITY::RESET_ENTITY_ALPHA(PLAYER::PLAYER_PED_ID());		// restore alphalevel to make character visible again
 
 	//log.close();
 }
