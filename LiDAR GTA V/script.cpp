@@ -86,7 +86,7 @@ bool hasStartedAndStoppedAutoScan = false;			// State variable that stores if th
 /**
 	Lidar height value definition.
 **/
-float halfCharacterHeight = 1.81;					// Fixed value. GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS() gives the player's position (at the middle of the character model, and not at foot level); in meters.
+float halfCharacterHeight = 1.51;					// Fixed value. GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS() gives the player's position (at the middle of the character model, and not at foot level); in meters.
 float raycastHeightParam = 2.2;					// This variable is used to adjust the height at which to position the origin of the lidar coordinate system. 
 													// The 2.40 meters in-game corresponds to 1.70m in real life (it already takes into account the halfCharacterHeight value).
 /**
@@ -812,7 +812,7 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 	sampleLidarHeightFileW.open(filePath + lidarHeightFilename);
 	Vector3 origin;
 	origin.x = centerDot.x;
-	origin.y = centerDot.y + 1;	// put the ray in front of the character model in order for ray to not collide with the character model
+	origin.y = centerDot.y;// +1;	// put the ray in front of the character model in order for ray to not collide with the character model
 	origin.z = centerDot.z;
 	Vector3 down;
 	down.x = 0;
