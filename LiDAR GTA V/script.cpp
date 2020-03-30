@@ -77,7 +77,9 @@ bool isAutoScanning = false;							// State variable set when the automatic LiDA
 bool isWaitAfterTeleportFinished = false;
 bool scanLive = false;									// State variable set when a lidar scan is being executed
 bool lidarScanPrep = false;
-bool singleScan = false;								// when the user presses the F2 key to create a snapshot of the surrounding environment
+//bool singleScan = false;								// when the user presses the F2 key to create a snapshot of the surrounding environment
+
+int singleScanCounter = 0;
 
 /**
 	State variable set when the user recorded positions in the current instance of the game.
@@ -180,7 +182,8 @@ void ScriptMain()
 		{
 			scanLive = true;
 			takeSnap = true;
-			singleScan = true;
+			singleScanCounter++;
+			//singleScan = true;
 			/*try {
 				std::ifstream positionsFileRforTeleportation;
 				positionsFileRforTeleportation.open(routeFilePath);
@@ -308,7 +311,7 @@ void ScriptMain()
 				continue;
 			}
 
-			if (CheckNumberOfLinesInFile(routeFilePath) - snapshotsCounter > 0) // if not all the positions in the file were scanned, continue with the scanning of the rest of the positions
+			if (CheckNumberOfLinesInFile(routeFilePath) - (snapshotsCounter - singleScanCounter) > 0) // if not all the positions in the file were scanned, continue with the scanning of the rest of the positions
 			{
 				if (displayNotice)
 				{
@@ -337,7 +340,7 @@ void ScriptMain()
 							else
 							{
 								notificationOnLeft("Lidar scanning restarting in " + std::to_string((int)(secondsToWaitAfterTeleport)) + " seconds" + "\n\nRemaining positions: " + std::to_string(positionsFileNumberOfLines - snapshotsCounter));
-								GotoLineInPositionsDBFile(positionsDBFileR, snapshotsCounter + 1);
+								GotoLineInPositionsDBFile(positionsDBFileR, (snapshotsCounter - singleScanCounter) + 1);
 							}
 						}
 						else
@@ -580,10 +583,13 @@ void ScriptMain()
 				lidarScanPrep = false;
 				PostLidarScanProcessing(newfolder + "/" + filename);
 
-				int percentageComplete = ((float)snapshotsCounter) / ((float)positionsFileNumberOfLines) * 100;
+				if (isAutoScanning)
+				{
+					int percentageComplete = ((float)snapshotsCounter - singleScanCounter) / ((float)positionsFileNumberOfLines) * 100;
 
-				if (percentageComplete > 0)	// ignore when the scan is done by clicking f2
-					notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter) + "\n\nCompleted: " + std::to_string(percentageComplete) + "%");
+					if (percentageComplete > 0)	// ignore when the scan is done by clicking f2
+						notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter - singleScanCounter) + "\n\nCompleted: " + std::to_string(percentageComplete) + "%");
+				}
 			}
 		}
 
