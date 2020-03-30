@@ -90,6 +90,8 @@ void PostLidarScanProcessing(std::string filePath);
 
 float distanceBetween3dPoints(Vector3 p1, Vector3 p2);
 
+int getNumberOfOutputDir(std::string parentDir, std::string parentDirname, std::ofstream& log);
+
 // entry point to the mod
 void ScriptMain();
 

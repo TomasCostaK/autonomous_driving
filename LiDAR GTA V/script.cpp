@@ -17,6 +17,8 @@
 #include <chrono>
 #include <map>
 #include <list>
+#include <filesystem>
+#include <regex>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -29,6 +31,7 @@ static std::default_random_engine generator;
 static std::uniform_real_distribution<double> distribution(-1.0, 1.0);
 
 using namespace Gdiplus;
+namespace fs = std::filesystem;
 
 /**
 	File path global variables, include files for logging, lidar configurations, jitter generation,
@@ -74,6 +77,7 @@ bool isAutoScanning = false;							// State variable set when the automatic LiDA
 bool isWaitAfterTeleportFinished = false;
 bool scanLive = false;									// State variable set when a lidar scan is being executed
 bool lidarScanPrep = false;
+bool singleScan = false;								// when the user presses the F2 key to create a snapshot of the surrounding environment
 
 /**
 	State variable set when the user recorded positions in the current instance of the game.
@@ -104,6 +108,8 @@ int secondsBeforeStartingLidarScan = 2;				// in order for the scanning start to
 
 int positionsFileNumberOfLines = -1;				// number of lines of the file with the route
 int snapshotsCounter = 0;							// number of lidar scans completed
+
+///int snapshotSequenceCounter = 0;
 
 // current player position for lidar scanning
 //Vector3 playerPos;
@@ -172,7 +178,10 @@ void ScriptMain()
 		// teleport the character to the start position of the route, or the landmark from where the automatic scanning was interrupted/stopped
 		if (IsKeyJustUp(VK_F2) && !isAutoScanning && !isRecordingPositions)
 		{
-			try {
+			scanLive = true;
+			takeSnap = true;
+			singleScan = true;
+			/*try {
 				std::ifstream positionsFileRforTeleportation;
 				positionsFileRforTeleportation.open(routeFilePath);
 
@@ -210,7 +219,7 @@ void ScriptMain()
 			{
 				notificationOnLeft(e.what());
 				return;
-			}
+			}*/
 		}
 
 		// start or stop recording the player's positions
@@ -477,7 +486,43 @@ void ScriptMain()
 				inputFile.close();
 
 				// start lidar process
-				std::string newfolder = "LiDAR GTA V/" + filename + std::to_string(snapshotsCounter);
+				std::string newfolder = "LiDAR GTA V/" + filename;
+				log << "Name: " + newfolder + "\n";
+				//if (singleScan)
+				//{
+					/*singleScan = false;
+
+					int dirMaxNum = 0;		// biggest "LiDAR_PointCloudN" number 
+					std::string path = "LiDAR GTA V/";
+					for (const auto &entry : fs::directory_iterator(path))
+					{
+						log << "path: " + entry.path().string() + "\n";
+						if (entry.path().string().find(filename) != std::string::npos) {
+							//std::cout << "found!" << '\n';
+							std::string dirname = entry.path().string();
+							std::string dirNumberStr = std::regex_replace(dirname, std::regex("([^0-9])"), "");
+							int dirNum = std::stoi(dirNumberStr);
+							if (dirNum > dirMaxNum)
+								dirMaxNum = dirNum;
+						}
+
+						//std::cout << entry.path() << std::endl;
+					}
+
+					newfolder += std::to_string(dirMaxNum++);
+					log << "Name2: " + newfolder + "\n";*/
+
+					snapshotsCounter = getNumberOfOutputDir("LiDAR GTA V/", filename, log);
+					newfolder += std::to_string(snapshotsCounter);
+
+					log << "Name2: " + newfolder + "\n";
+				//}
+				//if (!singleScan)
+				//{
+				//	snapshotSequenceCounter++;
+					//newfolder += std::to_string(snapshotsCounter);
+				//}
+
 				_mkdir(newfolder.c_str());
 
 				// prepare for lidar scan
@@ -536,12 +581,37 @@ void ScriptMain()
 				PostLidarScanProcessing(newfolder + "/" + filename);
 
 				int percentageComplete = ((float)snapshotsCounter) / ((float)positionsFileNumberOfLines) * 100;
-				notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter) + "\n\nCompleted: " + std::to_string(percentageComplete) + "%");
+
+				if (percentageComplete > 0)	// ignore when the scan is done by clicking f2
+					notificationOnLeft("Snapshots taken: " + std::to_string(snapshotsCounter) + "\n\nCompleted: " + std::to_string(percentageComplete) + "%");
 			}
 		}
 
 		WAIT(0);
 	}
+}
+
+int getNumberOfOutputDir(std::string parentDir, std::string parentDirname, std::ofstream& log)
+{
+	int dirMaxNum = 0;		// biggest "LiDAR_PointCloudN" number 
+	std::string path = parentDir;
+	for (const auto &entry : fs::directory_iterator(path))
+	{
+		log << "iter dir: " + entry.path().string() + "\n";
+		if (entry.path().string().find(parentDirname) != std::string::npos) {
+			//std::cout << "found!" << '\n';
+			std::string dirname = entry.path().string();
+			std::string dirNumberStr = std::regex_replace(dirname, std::regex("([^0-9])"), "");
+			log << "\t\tNumber: " + dirNumberStr + "\n";
+			int dirNum = std::stoi(dirNumberStr);
+			if (dirNum > dirMaxNum)
+				dirMaxNum = dirNum;
+		}
+
+		//std::cout << entry.path() << std::endl;
+	}
+	dirMaxNum += 1;
+	return dirMaxNum;
 }
 
 int CheckNumberOfLinesInFile(std::string filename)
