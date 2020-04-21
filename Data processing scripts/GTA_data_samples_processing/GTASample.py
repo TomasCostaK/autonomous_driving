@@ -5,100 +5,85 @@ import random
 import cv2
 import os.path
 import numpy as np
-from PCRaw import PCRaw
-from PCLabeledObject import PCLabeledObject
-from GTAView import GTAView
+from GtaView import GtaView
+from PcRaw import PcRaw
+from PcLabeledObject import PcLabeledObject
 
-class GTASample:
+class GtaSample:
     '''
     Class representing all the information belonging to a sample
     generated in GTA V.
     Abreviations:
         - pc: point cloud
-        - fn: filename
+        - Fn: filename
         - fv: front view
     '''
+    ##### Input dara files #####
+
     # .ply file with the point cloud (stores the positions of the points)
-    pc_ply_fn = "LiDAR_PointCloud.ply"
-    # file with a label for each point of the point cloud (background, pedestrian, vehicle, props)
-    pc_labels_fn = "LiDAR_PointCloud_labels.txt"
+    pcPlyFn = "LiDAR_PointCloud.ply"
+    # file with pointwise labels (background, pedestrian, vehicle, props)
+    pcLabelsFn = "LiDAR_PointCloud_labels.txt"
     # file with an id for every gameobject in the point cloud
-    pc_labels_detailed_fn = "LiDAR_PointCloud_labelsDetailed.txt"
-    # file that contains point position (x, y, z), point projected (x, y) pixels, and the index of the view that it's projected on (0, 1, or 2)
-    # the index 0 means front view image
-    pc_projected_points_fn = "LiDAR_PointCloud_points.txt"
-    # original front view image file (res equal to the screen resolution - 1920x1080 in my case)
-    fv_img_fn = "LiDAR_PointCloud_Camera_Print_Day_0.bmp"
+    pcLabelsDetailedFn = "LiDAR_PointCloud_labelsDetailed.txt"
+    # file that contains points position (x, y, z), point projected (x, y) pixels, and the index of the view that it's projected onto (0, 1, or 2)
+    pcProjectedPointsFn = "LiDAR_PointCloud_points.txt"
+    # original front view image file (resolution equal to the screen resolution - 1920x1080 in my case)
+    fvImgFn = "LiDAR_PointCloud_Camera_Print_Day_0.bmp"
+    # rotation of the character (and camera) when the lidar scan happened
+    rotationFn = "LiDAR_PointCloud_rotation.txt"
+    # vehicle information file to produce their bounding boxes
+    vehiclesInfoFn = "LiDAR_PointCloud_vehicles_dims.txt"
 
-    # rotation of the character when lidar scan happened
-    rotation_fn = "LiDAR_PointCloud_rotation.txt"
+    ##### Data structures for holding point cloud information ######
 
-    # PCraw instance containing all the raw point cloud information
-    pc_raw_data = None
-    # PCRaw instance containing all the points thar are projected onto the front view image
-    pc_fv_raw_data = None
-
-    # GTAView object
+    # PcRaw instance containing all the raw point cloud information
+    pcData = None
+    # PcRaw instance containing all the points that are projected onto the front view image
+    pcFvData = None
+    # GtaView instance
     imageView = None
 
-    def __init__(self, sample_directory_path):
+    def __init__(self, sampleDirPath):
         '''
         Constructor
         Arguments:
         - sample_directory_path: path to the directory where the ppoint cloud sample files are located
         - character_rotation: rotation (in degrees) of the in-game character when the lidar scanner happened
         '''
-        self.directory_path = sample_directory_path
 
-        # a float
-        char_rotation = float(self.load_txt_file_into_str_list(self.rotation_fn)[0].split(' ')[2]) # retrieves "rotx roty rotz" from file
+        self.directory_path = sampleDirPath
 
-        self.imageView = GTAView(sample_directory_path, self.fv_img_fn)
+        # -camRot makes point cloud facing the y direction in the right handed coord system, and -90 makes the point cloud face de x direction
+        # get Z rotation of the camera (character) stored in file
+        self.camRotation = - (float(self.loadTxtFileIntoStrList(self.rotationFn)[0].split(' ')[2])) - 90
+
+        self.imageView = GtaView(sampleDirPath, self.fvImgFn)
 
         #### Core calculations over the point cloud ####
 
         # tuple list with all the points of the point cloud, each point is a tuple (x, y, z)
-        # fill in the point cloud list
-        original_pc = self.load_ply_file_into_tuple_list(self.pc_ply_fn)
+        originalPc = self.loadPlyFileIntoTupleList(self.pcPlyFn)
 
         # load list of integers with the labels (background (0), pedestrian (1), vehicle (2), game props (3))
-        point_labels = self.load_txt_file_into_int_list(self.pc_labels_fn)
+        pointLabels = self.loadTxtFileIntoIntList(self.pcLabelsFn)
 
         # load list of integers with detailed labels, i.e., each point is associated to the id of the correspondent object
-        point_labels_detailed = self.load_txt_file_into_int_list(self.pc_labels_detailed_fn)
+        pointLabelsDetailed = self.loadTxtFileIntoIntList(self.pcLabelsDetailedFn)
 
         # load file with the points + projected coords and view index
-        point_projections = self.load_txt_file_into_tuple_float_list(self.pc_projected_points_fn, [3, 4, 5], [0, 1, 2])   # 3, 4, 5 correspond to integer values of projx,, projy, view_index
+        pointProjections = self.loadTxtFileIntoTupleFloatList(self.pcProjectedPointsFn, [3, 4, 5], [0, 1, 2])   # 3, 4, 5 correspond to integer values of projx, projy, view_index
 
-        self.pc_raw_data = PCRaw(original_pc, point_labels, point_labels_detailed, point_projections, character_rot=char_rotation, debug_mode=True, pc_name="Original")
+        self.pcData = PcRaw(originalPc, pointLabels, pointLabelsDetailed, pointProjections, camRot=self.camRotation, debugMode=True, pcName="Original")
 
-        # eliminate all points that are not projected onto the first view (index 0)
-        # and store the remaining points in a list of tuples
-        fv_pc, fv_pc_labels, fv_pc_labels_detailed, fv_pc_projected = self.create_frontview_pc(self.pc_raw_data.list_raw_pc, self.pc_raw_data.list_raw_labels, self.pc_raw_data.list_raw_detailed_labels, self.pc_raw_data.list_raw_projected_points)
+        # eliminate all points that are not projected onto the first view (index 0) and store the remaining points in a list of tuples
+        frontviewPc, fvPcLabels, fvPcLabelsDetailed, fvPcProjected = \
+            self.createFrontviewPc(self.pcData.list_rotated_raw_pc, self.pcData.list_raw_labels, self.pcData.list_raw_detailed_labels, self.pcData.list_raw_projected_points, orientedToXdirection=True)
 
-        self.pc_fv_raw_data = PCRaw(fv_pc, fv_pc_labels, fv_pc_labels_detailed, fv_pc_projected,character_rot=char_rotation, debug_mode=True, pc_name="Front view")
+        self.pcFvData = PcRaw(frontviewPc, fvPcLabels, fvPcLabelsDetailed, fvPcProjected, camRot=0, debugMode=True, pcName="Front view")
 
-    def load_ply_file_into_tuple_list(self, filename):
-        '''
-        Ignores the .PLY header and only returns the list of points within the file.
-        Arguments:
-            - filename: name of the .ply to load
-        Returns:
-            - list of tuples, where each tuple has the point attributtes present in the file
-        '''
-        # list of strings
-        tmp_ply_content = self.load_txt_file_into_str_list(filename)
-        tuple_list = []
 
-        for i in range(0, len(tmp_ply_content)):
-            string_values_list = tmp_ply_content[i].rstrip().split(" ")
-
-            if self.is_number(string_values_list[0]):
-                tuple_list.append(self.str_to_tuple(tmp_ply_content[i]))
-
-        return tuple_list
-
-    def load_txt_file_into_str_list(self, filename):
+    def loadTxtFileIntoStrList(self, filename):
         '''
         Loads file into a list of strings. Each line of the file will be an element of the list.
         Arguments:
@@ -112,7 +97,27 @@ class GTASample:
                 lines.append(line)
         return lines
 
-    def load_txt_file_into_int_list(self, filename):
+    def loadPlyFileIntoTupleList(self, filename):
+        '''
+        Ignores the .PLY header and only returns the list of points within the file.
+        Arguments:
+            - filename: name of the .ply to load
+        Returns:
+            - list of tuples, where each tuple has the point attributtes present in the file
+        '''
+        # list of strings
+        tmp_ply_content = self.loadTxtFileIntoStrList(filename)
+        tuple_list = []
+
+        for i in range(0, len(tmp_ply_content)):
+            string_values_list = tmp_ply_content[i].rstrip().split(" ")
+
+            if self.isNumber(string_values_list[0]):
+                tuple_list.append(self.strToTuple(tmp_ply_content[i]))
+
+        return tuple_list
+
+    def loadTxtFileIntoIntList(self, filename):
         '''
         Loads file into a list of integer values
         Arguments: 
@@ -126,7 +131,7 @@ class GTASample:
                 lines.append(int(line))
         return lines
 
-    def load_txt_file_into_tuple_float_list(self, filename, integer_indices_list = [], ignore_indices = []):
+    def loadTxtFileIntoTupleFloatList(self, filename, integer_indices_list = [], ignore_indices = []):
         '''
         Loads file into a list of strings, where each line corresponds to an element of the list
         Arguments:
@@ -139,7 +144,7 @@ class GTASample:
         lines = []
         with open(os.path.join(self.directory_path, filename)) as file_in:
             for line in file_in:
-                tmp_tuple = self.str_to_tuple(line) # contains all values as floats
+                tmp_tuple = self.strToTuple(line) # contains all values as floats
                 tuple = ()  # can contain integer values
                 for i in range(0, len(tmp_tuple)):
                     if i in integer_indices_list:
@@ -156,23 +161,55 @@ class GTASample:
 
         return lines
 
-    def load_kitti_velodyne_file(self, file_path, include_luminance = False):
+    def createFrontviewPc(self, point_cloud, point_cloud_labels, point_cloud_detailed_labels, point_projections_list, orientedToXdirection = False):
         '''
-        Loads a kitti velodyne file (ex: 000000.bin) into a list of tuples, where each tuple has (x, y, z) or (x, y, z, l)
-        Argument:
-            - include_luminance: if the function should also store the pont intensisty value in the list of points
+        Creates a point cloud only with the points that are projected onto the front view (index 0).
+        It takes the view indices from the point_projections_list, and the points from the rotated point cloud.
+        It also creates a tuple list for the labels and the labels_detailed of the new front view point cloud.
+        Arguments: 
+            - list of tuples containing the points position, projx, projy and view index. The view index is the sixth value of each line in the file.
+        Returns:
+            - a new point cloud containing only the points that are projected onto the front view image
+            - and respective tuple list of labels and labels_detailed, and the list of tuples containing projx, ptojy
         '''
-        # Source: https://github.com/hunse/kitti/blob/master/kitti/velodyne.py
-        points = np.fromfile(file_path, dtype=np.float32).reshape(-1, 4)
-        points = points[:, :3]  # exclude luminance
+        trimmed_pc = []
+        trimmed_pc_labels = []
+        trimmed_pc_labels_detailed = []
+        trimmed_projected = []
+        for i in range(0, len(point_projections_list)):
+            if point_projections_list[i][2] == 0: 
+                if orientedToXdirection:    
+                    if point_cloud[i][0] < 0:   # also remove the points with x < 0
+                        continue
 
-        point_tuple_list = []
-        for i in range(len(points)):
-            point_tuple_list.append((points[i][0], points[i][1], points[i][2],))
+                trimmed_pc.append(point_cloud[i])
+                trimmed_pc_labels.append(point_cloud_labels[i])
+                trimmed_pc_labels_detailed.append(point_cloud_detailed_labels[i])
+                trimmed_projected.append(point_projections_list[i]) # stores (projx, projy) tuples
 
-        return point_tuple_list
+        return trimmed_pc, trimmed_pc_labels, trimmed_pc_labels_detailed, trimmed_projected
 
-    def save_ply_file(self, filename, tuple_list, attributes = None):
+    def loadTxtFileToDict(self, filename):
+        '''
+        The first value in each line becomes the key and the rest the value
+        Returns a dictionary list values
+        '''
+        dict = {}
+        with open(os.path.join(self.directory_path, filename)) as file_in:
+            for line in file_in:
+                list = []
+                line_list = line.rstrip().split(' ')
+                #print(line_list)
+                key = line_list[0]
+                
+                for i in range(1, len(line_list)):
+                    list.append(line_list[i])
+                
+                dict[key] = list
+
+        return dict
+
+    def savePlyFile(self, filename, tuple_list, attributes = None):
         '''
         Save list of points (possibly with attributes such as color) into a .PLY formated file
         Arguments: 
@@ -199,9 +236,9 @@ class GTASample:
                 the_file.write(header_lines[i] + "\n")
 
             for i in range(0, len(tuple_list)):
-                the_file.write(self.tuple_to_str(tuple_list[i]) + "\n")
+                the_file.write(self.tupleToStr(tuple_list[i]) + "\n")
 
-    def save_ply_file_from_dict(self, filename, dict, attributes = None):
+    def savePlyFileFromDict(self, filename, dict, attributes = None):
         '''
         Save dictionary of lists of points (possibly with attributes such as color) into a .PLY formated file
         Arguments: 
@@ -234,9 +271,17 @@ class GTASample:
 
             for key in dict.keys():
                 for i in range(0, len(dict[key])):
-                    the_file.write(self.tuple_to_str(dict[key][i]) + "\n")
+                    the_file.write(self.tupleToStr(dict[key][i]) + "\n")
 
-    def is_number(self, s):
+    def saveListIntoTxtFile(self, list_of_str, dirname, filename):
+        '''
+        Store list of strings into a file
+        '''
+        with open(os.path.join(dirname, filename), "w") as the_file:
+            for i in range(0, len(list_of_str)):
+                the_file.write(list_of_str[i] + "\n")
+
+    def isNumber(self, s):
         '''
         https://stackoverflow.com/questions/354038/how-do-i-check-if-a-string-is-a-number-float
         '''
@@ -246,7 +291,7 @@ class GTASample:
         except ValueError:
             return False
 
-    def str_to_tuple(self, string):
+    def strToTuple(self, string):
         '''
         Converts a string with float values separated by spaces.
         Arguments:
@@ -261,7 +306,7 @@ class GTASample:
 
         return t
 
-    def tuple_to_str(self, tuple):
+    def tupleToStr(self, tuple):
         '''
         Converts a tuple of N size into a string, where each element is separated by a space.
         Arguments:
@@ -278,32 +323,40 @@ class GTASample:
 
         return tuple_string
 
-    def create_frontview_pc(self, point_cloud, point_cloud_labels, point_cloud_detailed_labels, point_projections_list):
-        '''
-        Creates a point cloud only with the points that are projected onto the front view (index 0).
-        It takes the view indices from the point_projections_list, and the points from the rotated point cloud.
-        It also creates a tuple list for the labels and the labels_detailed of the new front view point cloud.
-        Arguments: 
-            - list of tuples containing the points position, projx, projy and view index. The view index is the sixth value of each line in the file.
-        Returns:
-            - a new point cloud containing only the points that are projected onto the front view image
-            - and respective tuple list of labels and labels_detailed, and the list of tuples containing projx, ptojy
-        '''
-        trimmed_pc = []
-        trimmed_pc_labels = []
-        trimmed_pc_labels_detailed = []
-        trimmed_projected = []
-        for i in range(0, len(point_projections_list)):
-            if point_projections_list[i][2] == 0:
-                trimmed_pc.append(point_cloud[i])
-                trimmed_pc_labels.append(point_cloud_labels[i])
-                trimmed_pc_labels_detailed.append(point_cloud_detailed_labels[i])
-                trimmed_projected.append(point_projections_list[i]) # stores (projx, projy) tuples
 
-        return trimmed_pc, trimmed_pc_labels, trimmed_pc_labels_detailed, trimmed_projected
 
-   
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

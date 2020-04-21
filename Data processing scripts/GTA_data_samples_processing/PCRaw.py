@@ -4,9 +4,9 @@ import numpy as np
 import random
 import cv2
 import os.path
-from PCLabeledObject import PCLabeledObject
+from PcLabeledObject import PcLabeledObject
 
-class PCRaw:
+class PcRaw:
     '''
     Contains raw information about a point cloud.
     It can be an entire point cloud, or a point cloud with points associated to a given label (vehicles, pedestrians, ...). 
@@ -30,21 +30,21 @@ class PCRaw:
     # dict of PCLabeledObject's, where each key is a label/category integer 
     single_category_pcs_list = {}
 
-    def __init__(self, list_raw_pc, list_raw_labels, list_raw_detailed_labels, list_raw_projected_points, character_rot = 0, debug_mode = False, pc_name = ""):
-        self.pc_name = pc_name
-        self.rotation_amount = self.degrees_to_rad(-character_rot)  # rotation around z axis, in radians
-        self.list_labels = self.get_list_labels_within_pc(list_raw_labels)
+    def __init__(self, list_raw_pc, list_raw_labels, list_raw_detailed_labels, list_raw_projected_points, camRot = 0, debugMode = False, pcName = ""):
+        self.pc_name = pcName
+        self.rotation_amount = self.degreesToRad(camRot)  # rotation around z axis, in radians
+        self.list_labels = self.getListLabelsWithinPc(list_raw_labels)
 
         self.list_raw_pc = list_raw_pc
         self.list_raw_labels = list_raw_labels
         self.list_raw_detailed_labels = list_raw_detailed_labels
         self.list_raw_projected_points = list_raw_projected_points
 
-        self.list_rotated_raw_pc = self.rotate_pc_around_z_axis(self.list_raw_pc, self.rotation_amount)
+        self.list_rotated_raw_pc = self.rotatePcAroundZaxis(self.list_raw_pc, self.rotation_amount)
+        
+        self.debug(debugMode)
 
-        self.debug(debug_mode)
-
-    def rotate_pc_around_z_axis(self, point_list, rotation_rad):
+    def rotatePcAroundZaxis(self, point_list, rotation_rad):
         '''
         Rotates the entire point cloud around the z (up) axis.
         Arguments:
@@ -55,12 +55,12 @@ class PCRaw:
         '''
         rot_point_list = []
         for i in range(0, len(point_list)):
-            rot_point_tuple = self.rotate_point_around_z_axis(point_list[i], rotation_rad)
+            rot_point_tuple = self.rotatePointAroundZaxis(point_list[i], rotation_rad)
             rot_point_list.append(rot_point_tuple)
 
         return rot_point_list
     
-    def rotate_point_around_z_axis(self, point, angle_rad):
+    def rotatePointAroundZaxis(self, point, angle_rad):
         '''
         Rotate a point around the z axis.
         Arguments:
@@ -77,7 +77,7 @@ class PCRaw:
 
         return (r_x, r_y, r_z)
 
-    def degrees_to_rad(self, angle_degrees):
+    def degreesToRad(self, angle_degrees):
         '''
         Converts degrees into radians.
         Returns:
@@ -85,7 +85,7 @@ class PCRaw:
         '''
         return angle_degrees * (math.pi/180)
 
-    def get_list_labels_within_pc(self, point_cloud_labels):
+    def getListLabelsWithinPc(self, point_cloud_labels):
         '''
         Search for all different labels within a point cloud.
         '''
@@ -106,7 +106,7 @@ class PCRaw:
             print("list_rotated_raw_pc:\t\t " + str(len(self.list_rotated_raw_pc)) + " elements;\t element: " + str(type(self.list_rotated_raw_pc[0])) + ";\t element length: " + str(len(self.list_rotated_raw_pc[0])) + "; \tinfo: (x, y, z)")
             print("list_labels:\t\t\t " + str(len(self.list_labels)) + " elements;\t\t element: " + str(type(self.list_labels[0])) + "\t\t printed list: " +  str(self.list_labels))
 
-    def generate_single_category_point_cloud(self, category_id, category_name = "", debug_mode = False):
+    def generateSingleCategoryPointCloud(self, category_id, category_name = "", debug_mode = False):
         '''
         Create a point cloud with points belonging to the same label/category.
         '''
@@ -129,15 +129,8 @@ class PCRaw:
                 detailed_labels_list.append(self.list_raw_detailed_labels[i])
                 projected_point_list.append(self.list_raw_projected_points[i])
 
-        category_pc = PCLabeledObject(points, detailed_labels_list, projected_point_list, debug_mode, category_id, category_name)
+        category_pc = PcLabeledObject(points, detailed_labels_list, projected_point_list, debug_mode, category_id, category_name)
 
         self.single_category_pcs_list[category_id] = category_pc
 
     
-
-
-
-
-
-
-
