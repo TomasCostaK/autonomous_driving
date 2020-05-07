@@ -40,13 +40,13 @@ class PcRaw:
         self.list_raw_detailed_labels = list_raw_detailed_labels
         self.list_raw_projected_points = list_raw_projected_points
 
-        self.list_rotated_raw_pc = self.rotatePcAroundZaxis(self.list_raw_pc, self.rotation_amount)
+        self.list_rotated_raw_pc = self.rotatePcToAlignWithRectCamCoordSystem(self.list_raw_pc, self.rotation_amount)
         
         self.debug(debugMode)
 
-    def rotatePcAroundZaxis(self, point_list, rotation_rad):
+    def rotatePcToAlignWithRectCamCoordSystem(self, point_list, rotation_rad):
         '''
-        Rotates the entire point cloud around the z (up) axis.
+        Rotates the entire point cloud to align with the rectified camera coordinate system
         Arguments:
             - tuple list with all the point cloud points.
             - angle_rad: rotation in radians
@@ -56,6 +56,8 @@ class PcRaw:
         rot_point_list = []
         for i in range(0, len(point_list)):
             rot_point_tuple = self.rotatePointAroundZaxis(point_list[i], rotation_rad)
+            #rot_point_tuple = self.rotatePointAroundYaxis(rot_point_tuple, self.degreesToRad(-90))
+            #rot_point_tuple = self.scalePoint(rot_point_tuple, 1, -1, 1)
             rot_point_list.append(rot_point_tuple)
 
         return rot_point_list
@@ -76,6 +78,50 @@ class PcRaw:
         r_z = (p_z)
 
         return (r_x, r_y, r_z)
+
+    def rotatePointAroundXaxis(self, point, angle_rad):
+        '''
+        Rotate a point around the x axis.
+        Arguments:
+            - point: tuple with 3 elements (x, y, z) corresponding the point to be rotated
+            - angle_rad: angle to rotate the point around the x axis
+        Returns:
+            - tuple with the rotated point coordinates (x, y, z)
+        '''
+        p_x, p_y, p_z = point
+
+        r_x = (p_x)
+        r_y = (p_y)*math.cos(angle_rad) - (p_z)*math.sin(angle_rad)
+        r_z = (p_y)*math.sin(angle_rad) + (p_z)*math.cos(angle_rad)
+
+        return (r_x, r_y, r_z)
+
+    def rotatePointAroundYaxis(self, point, angle_rad):
+        '''
+        Rotate a point around the y axis.
+        Arguments:
+            - point: tuple with 3 elements (x, y, z) corresponding the point to be rotated
+            - angle_rad: angle to rotate the point around the y axis
+        Returns:
+            - tuple with the rotated point coordinates (x, y, z)
+        '''
+        p_x, p_y, p_z = point
+
+        r_x = (p_x)*math.cos(angle_rad) + (p_z)*math.sin(angle_rad)
+        r_y = (p_y)
+        r_z = -(p_x)*math.sin(angle_rad) + (p_z)*math.cos(angle_rad)
+
+        return (r_x, r_y, r_z)
+
+    def scalePoint(self, point, vx, vy, vz):
+        p_x, p_y, p_z = point
+        
+        s_x = vx*p_x
+        s_y = vy*p_y
+        s_z = vz*p_z
+
+        return (s_x, s_y, s_z)
+
 
     def degreesToRad(self, angle_degrees):
         '''

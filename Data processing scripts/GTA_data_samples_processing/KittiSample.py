@@ -2,6 +2,8 @@ from GtaSample import GtaSample
 from pathlib import Path
 import numpy as np
 import os.path
+import math
+import struct
 
 class KittiSample:
 
@@ -22,6 +24,7 @@ class KittiSample:
     def loadKittiVelodyneFile(file_path, include_luminance = False):
         '''
         Loads a kitti velodyne file (ex: 000000.bin) into a list of tuples, where each tuple has (x, y, z) or (x, y, z, l)
+        Right now it discards the 4th vaule of each point, i.e. the luminance
         Argument:
             - include_luminance: if the function should also store the pont intensisty value in the list of points
         '''
@@ -53,16 +56,37 @@ class KittiSample:
         return point_tuple_list
 
     @staticmethod
-    def saveKittiVelodyneFile(tuple_list, filename, directory):
+    def saveKittiVelodyneFile(tuple_list, filename, directory, output_luminance = False):
         '''
-        Saves pointcloud without luminance
+        Saves pointcloud without luminance in binary
+        For frustum pointnet, the point cloud must contain luminance
         '''
-        dt=np.dtype('float,float,float')
-        numpyList = np.array(tuple_list,dtype=dt)
+        #dt = None
+        #if output_luminance:
+            #dt=np.dtype('float,float,float,float')
+        #else:
+            #dt=np.dtype('float,float,float')
+
+        '''for point in tuple_list:
+            s = struct.pack('f'*len(point), *point)
+            f = open(directory + filename, 'ab')    # append and binary
+            f.write(s)
+            f.close()'''
+
+        with open(directory + filename, "wb") as f:
+            for point in tuple_list:
+                s = struct.pack('f'*len(point), *point)
+                f.write(s)
+                #newline = "\n"
+                #f.write(newline.encode("utf-8").replace(newline, os.linesep))
         
-        f = open(directory + filename, 'w+b')
-        numpyList.tofile(f)
-        f.close()
+
+    def addDummyLuminenceValuesToPointCloud(self, tuple_list):
+        new_tuple_list = []
+        for t in tuple_list:
+            new_tuple_list.append((t[0], t[1], t[2], 1))
+
+        return new_tuple_list
 
     def outputKittiLabelFile(self, sampleCounter, ignore_truncated_bbs = True):
         # generate file name
@@ -83,30 +107,73 @@ class KittiSample:
 
         # save image
         self.gtaSample.imageView.saveImage(self.gtaSample.imageView.kittiImage, self.kittiViewsDir, output_file_name + ".png")
-        # save point cloud
-        KittiSample.saveKittiVelodyneFile(self.gtaSample.pcFvData.list_raw_pc, output_file_name + ".bin", self.kittiVelodyneDir)
+        # save point cloud - the full rotated point cloud
+        KittiSample.saveKittiVelodyneFile(self.addDummyLuminenceValuesToPointCloud(self.gtaSample.pcData.list_rotated_raw_pc), output_file_name + ".bin", self.kittiVelodyneDir, output_luminance = True)
         # save calibration info
         self.saveCalibInfo(self.kittiCalibDir, output_file_name + ".txt")
         # labels info
         self.saveLabelInfo(self.kittiLabelsDir, output_file_name + ".txt")
 
+    def degreesToRad(self, angle_degrees):
+        '''
+        Converts degrees into radians.
+        Returns:
+            - Float angle in radian
+        '''
+        return angle_degrees * (math.pi/180)
 
     def saveCalibInfo(self, dirname, filename):
+        img_width = 1224
+        img_height = 370
 
-        # only one camera means p1=p2=p3=p0
-        p0_mat = [[1, 0, 0, 0],
-                  [0, 1, 0, 0],
-                  [0, 0, 1, 0]]
+        Cu = img_width/2 # half screen width
+        Cv = img_height/2  # half screen height
+        hor_fov = 50.0  
+        vert_fov = 2*math.atan(math.tan(hor_fov/2)*(img_width/img_height))
+
+        fx = img_width / (2.0 * math.tan(hor_fov * math.pi / 360.0))  # focus length
+
+        fy = img_height / (2.0 * math.tan(vert_fov * math.pi / 360.0))  # focus length
+
+        #f = 1224 / math.tan((hor_fov * math.pi / 180.0) / 2)  # focus length
+        
+        #print("2.0 * math.tan(hor_fov * math.pi / 360.0: " + str(2.0 * math.tan(hor_fov * math.pi / 360.0)))
+        print("hor_fov: " + str(hor_fov))
+        print("pi: " + str(math.pi))
+        print("Cu: " + str(Cu))
+        print("Cv: " + str(Cv))
+        #print("f: " + str(f))
+
+        # only one camera means p1=p2=p3=p0 === GOOD ===
+        #p0_mat = [[fx, 0, Cu, 0],
+        #          [0, fy, Cv, 0],
+        #          [0, 0, 1, 0]]
+
+        p0_mat = [[850, 0, Cu, 0],
+                  [ 0, 900, Cv, 0],
+                  [ 0, 0, 1, 0]]
 
         p1_mat=p2_mat=p3_mat=p0_mat
 
-        r0_rect = [[1, 0, 0, 0],
-                   [0, 1, 0, 0],
-                   [0, 0, 1, 0]]
+        # rot x 90                          <<<<<<<<<<<<<<<<<<<<<<<<
+        #r0_rect = [[1, 0, 0],
+        #           [0, 0, -1],
+        #           [0, 1, 0]]
+
+        # rot z 90                                      <<<<<<<<<<<<<<<<<<<<<<<<
+        #tr_velo_to_cam = [[0, -1, 0, 0],
+        #                  [1, 0, 0, 0],
+        #                  [0, 0, 1, 0]]    
         
-        tr_velo_to_cam = [[1, 0, 0, 0],
-                          [0, 1, 0, 0],
-                          [0, 0, 1, 0]]
+        # identity
+        r0_rect = [[1, 0, 0],
+                  [0, 1, 0],
+                   [0, 0, 1]]
+
+        # rotZ(90) * rotX(90)
+        tr_velo_to_cam = [[0, -1, 0, 0],
+                          [0, 0, -1, 0],
+                          [1, 0, 0, 0]]
 
         tr_imu_to_velo = [[1, 0, 0, 0],
                           [0, 1, 0, 0],
@@ -131,12 +198,12 @@ class KittiSample:
             Returns:
                 - string
         '''
-        line = name + ":\n"
+        line = name + ": "
         for i in range(0, len(mat)):
             for j in range(0, len(mat[i])):
                 line += str(mat[i][j]) + " "
 
-            line += "\n"
+        line += "\n"
         
         return line
 
@@ -165,14 +232,14 @@ class KittiSample:
         '''
 
         '''
-        Values per vehicle: [Entity] 
-	    | Hash 
-	    | minCornerX | minCornerY | minCornerZ | projMinCornerX | projMinCornerX 
-	    | maxCornerX | maxCornerY | maxCornerZ | projMaxCornerX | projMaxCornerY 
-	    | Posx | Posy | Posz | Rotx | Roty | Rotz 
-	    | projCenterX | projCenterY 
-	    | dimX | dimY | dimZ
-	    | objectType | truncated"
+            Values per vehicle: [Entity] 
+            | Hash 
+            | minCornerX | minCornerY | minCornerZ | projMinCornerX | projMinCornerX 
+            | maxCornerX | maxCornerY | maxCornerZ | projMaxCornerX | projMaxCornerY 
+            | Posx | Posy | Posz | Rotx | Roty | Rotz 
+            | projCenterX | projCenterY 
+            | dimX | dimY | dimZ
+            | objectType | truncated"
         '''
         vehicleInfoDict = self.gtaSample.loadTxtFileToDict(self.gtaSample.vehiclesInfoFn)
 
@@ -193,13 +260,13 @@ class KittiSample:
             label_line += vehicleInfoDict[key][22] + " "
             
             # truncated
-            label_line += "-1 "
+            label_line += "0 "
 
             # occluded
-            label_line += "-1 "
+            label_line += "0 "
 
             # alpha
-            label_line += "-10 "
+            label_line += "0 "
             
             # make sure that the projected points correspond to the min and max
             minx = -1
@@ -229,16 +296,59 @@ class KittiSample:
             label_line += str(minx) + " " + str(miny) + " " + str(maxx) + " " + str(maxy) + " "
             
             # height, width, length
-            label_line += vehicleInfoDict[key][19] + " " + vehicleInfoDict[key][20] + " " + vehicleInfoDict[key][21] + " "
+            #label_line += vehicleInfoDict[key][19] + " " + vehicleInfoDict[key][20] + " " + vehicleInfoDict[key][21] + " "
+            label_line += vehicleInfoDict[key][21] + " " + vehicleInfoDict[key][20] + " " + vehicleInfoDict[key][19] + " "
 
             # location
             # rotate location point around z axis according to the angle that the point cloud was rotated (- Z angle of the camera - 90º)
-            originalVehiclePoint = (float(vehicleInfoDict[key][11]), float(vehicleInfoDict[key][12]), float(vehicleInfoDict[key][13]))
-            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundZaxis(originalVehiclePoint, self.gtaSample.pcData.rotation_amount)
+            originalVehiclePoint = (float(vehicleInfoDict[key][11]), float(vehicleInfoDict[key][12]), float(vehicleInfoDict[key][13]) - float(vehicleInfoDict[key][21])/2)
+
+            print("ORIGINAL CENTER: " + str(originalVehiclePoint))
+
+            # because of the point cloud is aditionally transformed to be pointing in the direction of x axis instead of the y axis
+            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundZaxis(originalVehiclePoint, self.gtaSample.pcData.rotation_amount) #self.degreesToRad(-90))
+
+            print("ORIGINAL CENTER RotZ -90º: " + str(rotatedVehiclePos))
+
+            # transform from lidar coordinate system to camera coordinate system
+            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundZaxis(rotatedVehiclePos, self.degreesToRad(90))
+            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundXaxis(rotatedVehiclePos, self.degreesToRad(90))
+
             label_line += str(rotatedVehiclePos[0]) + " " + str(rotatedVehiclePos[1]) + " " + str(rotatedVehiclePos[2]) + " "
             
-            # rotation_y
-            label_line += "-10"
+            # [-180, 180]
+            print("Rotation in degrees: " + vehicleInfoDict[key][16])
+
+            print("Rotation in degrees: " + str(-float(vehicleInfoDict[key][16]))) # + 40
+
+            # [-pi, pi]
+            obj_rot_rads = self.degreesToRad(float(vehicleInfoDict[key][16]) * -1)
+
+            #print("Rotation in radians: " + str(self.degreesToRad(float(vehicleInfoDict[key][16]))))
+
+            #obj_rotation = float(vehicleInfoDict[key][16])
+
+            #if obj_rotation < 0:
+            #    obj_rotation = 180 + (180 - abs(obj_rotation))
+            #    print("Rotation in degrees: " + str(obj_rotation))
+                
+            obj_rot_rads = obj_rot_rads - self.degreesToRad(90) - self.gtaSample.pcData.rotation_amount
+
+            # keep the angle between [-pi, pi]
+            if obj_rot_rads > math.pi:
+                obj_rot_rads = abs(math.pi - obj_rot_rads) - math.pi
+            if obj_rot_rads < -math.pi:
+                obj_rot_rads = math.pi - (abs(obj_rot_rads) - math.pi)
+
+            print("--- Camera rotation: " + str(self.gtaSample.rawCamRotation))
+            print("--- Vehicle rotation in velocyne coords: " + vehicleInfoDict[key][15])
+            print("--- Vehicle rotation in cam coords: " + str(obj_rot_rads*180/math.pi))
+
+            #print("Rotation in degrees: " + str(self.degreesToRad(obj_rotation + 90) + self.gtaSample.pcData.rotation_amount))
+            print("--- Final rotation: " + str(obj_rot_rads))
+            # rotation_y in radians
+            #label_line += str(self.degreesToRad(float(vehicleInfoDict[key][16]))) + " "# + 90) + self.gtaSample.pcData.rotation_amount) + " "
+            label_line += str(obj_rot_rads) + " "
 
             contents_list.append(label_line)
 

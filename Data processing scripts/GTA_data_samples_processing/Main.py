@@ -1,6 +1,15 @@
 import os
 from GtaSample import GtaSample
 from KittiSample import KittiSample
+from LoadBinPointclouds import loadKittiVelodyneFile
+from LoadBinPointclouds import savePlyFile
+
+def testFunction():
+    print("test\n")
+    #kittipointcloud = loadKittiVelodyneFile("000002.bin")
+
+    #savePlyFile("1_exp.ply", kittipointcloud, "c", (0, 150, 150))
+
 
 ##### Input and output directory paths #####
 
@@ -21,6 +30,14 @@ kittiCalibDir = 'data_object_calib/training/calib/'
 # to generate the naming sequence for the kitti samples
 sampleCounter = 0
 
+############################# TESTING GROUNDS ################################
+
+testFunction()
+
+
+
+####################################################################################
+
 to_overwrite = input("Do you want to overwrite previous kitti samples? (No = 0, Yes = 1)\n> ")
 
 if not int(to_overwrite):
@@ -35,7 +52,7 @@ print("Current number of samples in " + rootKittiOutputDir + ": " + str(sampleCo
 # walk through all samples in rootDir and create the kitti output accordingly
 for subdir, dirs, files in os.walk(rootDir):
     for dirName in dirs:
-        print('\n\nCurrent sample directory: ' + dirName + '')
+        print('\n\n::::::: Current sample directory: ' + dirName + ' :::::::')
 
         # load sample (point cloud + front view image) and create the original pointcloud, a rotated point cloud, a front view point cloud, the kitti dataset resolution image
         pc_sample1 = GtaSample(rootDir + dirName)

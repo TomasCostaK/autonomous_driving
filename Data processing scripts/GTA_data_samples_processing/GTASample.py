@@ -53,10 +53,10 @@ class GtaSample:
         '''
 
         self.directory_path = sampleDirPath
-
+        self.rawCamRotation = float(self.loadTxtFileIntoStrList(self.rotationFn)[0].split(' ')[2])
         # -camRot makes point cloud facing the y direction in the right handed coord system, and -90 makes the point cloud face de x direction
         # get Z rotation of the camera (character) stored in file
-        self.camRotation = - (float(self.loadTxtFileIntoStrList(self.rotationFn)[0].split(' ')[2])) - 90
+        self.camRotation = - (self.rawCamRotation) - 90
 
         self.imageView = GtaView(sampleDirPath, self.fvImgFn)
 
