@@ -52,11 +52,15 @@ class GtaView:
 
         startRectRow = int((h_roi-desiredRectMiddleHeight)/2)
         startRectColumn = int((w_roi-desiredRectMiddleWidth)/2)
+        print("kitti cut x: " + str(startRectRow))
+        print("kitti cut y: " + str(startRectColumn))
 
         self.kittiImage = roiImage[startRectRow:startRectRow+desiredRectMiddleHeight, startRectColumn:startRectColumn+desiredRectMiddleWidth]
 
+        cv2.imwrite(os.path.join(".", "hello.png"), self.kittiImage)
+
     def getKittiImageDimensions(self):
-        kitti_height, kitti_width, kitti_channels = self.kitti_image.shape
+        kitti_height, kitti_width, kitti_channels = self.kittiImage.shape
 
         return kitti_height, kitti_width, kitti_channels
 
@@ -172,9 +176,6 @@ class GtaView:
 
         resize_percentage = kci_w/original_width # 0.725
 
-        #dict_kitti_2d_bounding_boxes = {}
-        #for i in dict_2d_bounding_boxes.keys():
-        #print("before: minX=" + str(dict_2d_bounding_boxes[i][0]) + ", maxX=" + str(dict_2d_bounding_boxes[i][1]) + ", minY=" + str(dict_2d_bounding_boxes[i][2]) + ", maxY=" + str(dict_2d_bounding_boxes[i][3]))
         # minX
         minX = math.ceil(tuple_2d_coords[0]*resize_percentage) - lr_bar
         # maxX
@@ -183,32 +184,9 @@ class GtaView:
         minY = math.ceil(tuple_2d_coords[1]*resize_percentage) - ub_bar
         # maxY
         maxY = math.ceil(tuple_2d_coords[3]*resize_percentage) - ub_bar
-        #print("after: minX=" + str(minX) + ", maxX=" + str(maxX) + ", minY=" + str(minY) + ", maxY=" + str(maxY))
 
         bb_height = maxX - minX
         bb_length = maxY - minY
-        
-        #divider_miny = 12
-        #if bb_height > 100:
-        #    divider_miny = 20
-
-        #divider_maxy = 100
-        #if bb_height < 40:
-        #    divider_maxy = 20
-        
-
-        #minY = minY - int(bb_height/divider_miny) # the origin is the top left corner of the image
-        #maxY = maxY + int(bb_height/divider_maxy)
-
 
         return minX, minY, maxX, maxY
-        # add bounding box to dictionary
-        #dict_kitti_2d_bounding_boxes[i] = []
-        #dict_kitti_2d_bounding_boxes[i].append(minX)
-        #dict_kitti_2d_bounding_boxes[i].append(maxX)
-        #dict_kitti_2d_bounding_boxes[i].append(minY - int(bb_height/divider_miny))  # the origin is the top left corner of the image
-        #dict_kitti_2d_bounding_boxes[i].append(maxY + int(bb_height/divider_maxy))
-        #print(dict_kitti_2d_bounding_boxes)
-
-        #self.dict_2d_bb_of_kitti_image = dict_kitti_2d_bounding_boxes
 

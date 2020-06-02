@@ -6,9 +6,9 @@ from LoadBinPointclouds import savePlyFile
 
 def testFunction():
     print("test\n")
-    #kittipointcloud = loadKittiVelodyneFile("000002.bin")
+    #kittipointcloud = loadKittiVelodyneFile("000003.bin")
 
-    #savePlyFile("1_exp.ply", kittipointcloud, "c", (0, 150, 150))
+    #savePlyFile("1_exp2.ply", kittipointcloud, "c", (0, 150, 150))
 
 
 ##### Input and output directory paths #####
@@ -30,13 +30,8 @@ kittiCalibDir = 'data_object_calib/training/calib/'
 # to generate the naming sequence for the kitti samples
 sampleCounter = 0
 
-############################# TESTING GROUNDS ################################
-
+### testing function
 testFunction()
-
-
-
-####################################################################################
 
 to_overwrite = input("Do you want to overwrite previous kitti samples? (No = 0, Yes = 1)\n> ")
 
@@ -84,6 +79,8 @@ for subdir, dirs, files in os.walk(rootDir):
         #pc_sample1.imageView.show_image_view_with_2d_bounding_boxes(pc_sample1.imageView.dict_2d_bb_of_kitti_image, pc_sample1.imageView.kitti_image, pc_sample1.pc_fv_raw_data.single_category_pcs_list[2].object_ids_list, window_size = 1)
 
         sampleCounter += 1
+
+        #input()
 
 
 

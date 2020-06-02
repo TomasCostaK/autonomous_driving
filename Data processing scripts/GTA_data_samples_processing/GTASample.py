@@ -53,7 +53,14 @@ class GtaSample:
         '''
 
         self.directory_path = sampleDirPath
-        self.rawCamRotation = float(self.loadTxtFileIntoStrList(self.rotationFn)[0].split(' ')[2])
+
+        rotationFIleLine = self.loadTxtFileIntoStrList(self.rotationFn)
+        self.rawCamRotation = float(rotationFIleLine[0].split(' ')[2])
+        self.camForwardDir = np.array([float(rotationFIleLine[0].split(' ')[3]), float(rotationFIleLine[0].split(' ')[4]), float(rotationFIleLine[0].split(' ')[5])])
+
+        if self.rawCamRotation < 0:
+            self.rawCamRotation = 180 + (180 + self.rawCamRotation)
+
         # -camRot makes point cloud facing the y direction in the right handed coord system, and -90 makes the point cloud face de x direction
         # get Z rotation of the camera (character) stored in file
         self.camRotation = - (self.rawCamRotation) - 90
@@ -129,6 +136,8 @@ class GtaSample:
         with open(os.path.join(self.directory_path, filename)) as file_in:
             for line in file_in:
                 lines.append(int(line))
+
+        print("-------> " + str(len(lines)))
         return lines
 
     def loadTxtFileIntoTupleFloatList(self, filename, integer_indices_list = [], ignore_indices = []):

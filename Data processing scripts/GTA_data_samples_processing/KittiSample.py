@@ -4,6 +4,7 @@ import numpy as np
 import os.path
 import math
 import struct
+from kitti_util import compute_box_3d
 
 class KittiSample:
 
@@ -61,18 +62,6 @@ class KittiSample:
         Saves pointcloud without luminance in binary
         For frustum pointnet, the point cloud must contain luminance
         '''
-        #dt = None
-        #if output_luminance:
-            #dt=np.dtype('float,float,float,float')
-        #else:
-            #dt=np.dtype('float,float,float')
-
-        '''for point in tuple_list:
-            s = struct.pack('f'*len(point), *point)
-            f = open(directory + filename, 'ab')    # append and binary
-            f.write(s)
-            f.close()'''
-
         with open(directory + filename, "wb") as f:
             for point in tuple_list:
                 s = struct.pack('f'*len(point), *point)
@@ -122,64 +111,69 @@ class KittiSample:
         '''
         return angle_degrees * (math.pi/180)
 
+    # Ref: https://github.com/charlesq34/frustum-pointnets/blob/master/kitti/kitti_util.py
+    def inverse_rigid_trans(self, Tr):
+        ''' Inverse a rigid body transform matrix (3x4 as [R|t])
+            [R'|-R't; 0|1]
+        '''
+        inv_Tr = np.zeros_like(Tr) # 3x4
+        inv_Tr[0:3,0:3] = np.transpose(Tr[0:3,0:3])
+        inv_Tr[0:3,3] = np.dot(-np.transpose(Tr[0:3,0:3]), Tr[0:3,3])
+        return inv_Tr
+
     def saveCalibInfo(self, dirname, filename):
+        # https://towardsdatascience.com/inverse-projection-transformation-c866ccedef1c
+        # https://github.com/darylclimb/cvml_project/blob/master/projections/inverse_projection/geometry_utils.py
         img_width = 1224
         img_height = 370
 
+        fov = 75
         Cu = img_width/2 # half screen width
         Cv = img_height/2  # half screen height
-        hor_fov = 50.0  
-        vert_fov = 2*math.atan(math.tan(hor_fov/2)*(img_width/img_height))
 
-        fx = img_width / (2.0 * math.tan(hor_fov * math.pi / 360.0))  # focus length
+        hor_fov = fov / 360. * 2. * np.pi       # 50.0  
+        fx = img_width / (2. * np.tan(hor_fov / 2.))# img_width / (2.0 * math.tan(hor_fov * math.pi / 360.0))  # focus length
 
-        fy = img_height / (2.0 * math.tan(vert_fov * math.pi / 360.0))  # focus length
-
-        #f = 1224 / math.tan((hor_fov * math.pi / 180.0) / 2)  # focus length
+        vert_fov = 2. * np.arctan(np.tan(hor_fov / 2) * img_height / img_width)
+        fy = img_height / (2. * np.tan(vert_fov / 2.))
         
-        #print("2.0 * math.tan(hor_fov * math.pi / 360.0: " + str(2.0 * math.tan(hor_fov * math.pi / 360.0)))
         print("hor_fov: " + str(hor_fov))
         print("pi: " + str(math.pi))
         print("Cu: " + str(Cu))
         print("Cv: " + str(Cv))
-        #print("f: " + str(f))
 
-        # only one camera means p1=p2=p3=p0 === GOOD ===
-        #p0_mat = [[fx, 0, Cu, 0],
-        #          [0, fy, Cv, 0],
-        #          [0, 0, 1, 0]]
-
-        p0_mat = [[850, 0, Cu, 0],
-                  [ 0, 900, Cv, 0],
-                  [ 0, 0, 1, 0]]
-
-        p1_mat=p2_mat=p3_mat=p0_mat
-
-        # rot x 90                          <<<<<<<<<<<<<<<<<<<<<<<<
-        #r0_rect = [[1, 0, 0],
-        #           [0, 0, -1],
-        #           [0, 1, 0]]
-
-        # rot z 90                                      <<<<<<<<<<<<<<<<<<<<<<<<
-        #tr_velo_to_cam = [[0, -1, 0, 0],
-        #                  [1, 0, 0, 0],
-        #                  [0, 0, 1, 0]]    
+        self.p0_mat =[[fx, 0, Cu, 0.],
+                      [0, fy, Cv, 0.],
+                      [0, 0, 1., 0.]]
         
+        # store in a 3x4 np matrix
+        self.p0_mat = np.array(self.p0_mat)
+        self.p0_mat = np.reshape(self.p0_mat, [3,4])
+
+        p1_mat=p2_mat=p3_mat=self.p0_mat
+
         # identity
         r0_rect = [[1, 0, 0],
                   [0, 1, 0],
                    [0, 0, 1]]
 
-        # rotZ(90) * rotX(90)
+        # Rotation from reference camera coord to rect camera coord
+        self.R0 = np.array(r0_rect)
+        self.R0 = np.reshape(self.R0,[3,3])
+
         tr_velo_to_cam = [[0, -1, 0, 0],
                           [0, 0, -1, 0],
                           [1, 0, 0, 0]]
+
+        self.V2C = np.array(tr_velo_to_cam)
+        self.V2C = np.reshape(self.V2C, [3,4])
+        self.C2V = self.inverse_rigid_trans(self.V2C)
 
         tr_imu_to_velo = [[1, 0, 0, 0],
                           [0, 1, 0, 0],
                           [0, 0, 1, 0]]
 
-        line = KittiSample.matToStringKitti("P0", p0_mat)
+        line = KittiSample.matToStringKitti("P0", self.p0_mat)
         line += KittiSample.matToStringKitti("P1", p1_mat)
         line += KittiSample.matToStringKitti("P2", p2_mat)
         line += KittiSample.matToStringKitti("P3", p3_mat)
@@ -248,13 +242,126 @@ class KittiSample:
         # for visualization purposes
         boundingBoxList = []
 
+        print("Number of keys: " + str(vehicleInfoDict.keys()))
+
         for key in vehicleInfoDict.keys():
             label_line = ""
 
-            if int(vehicleInfoDict[key][4]) < 0 or int(vehicleInfoDict[key][5]) < 0 or int(vehicleInfoDict[key][9]) < 0 or int(vehicleInfoDict[key][10]) < 0: # if one projection coordinate is negative, the vehicle isn't in the image view
+            kitti_height, kitti_width, kitti_channels = self.gtaSample.imageView.getKittiImageDimensions()
+
+            #### Calculate object location (the center of its base plane ###)
+            # rotate location point around z axis according to the angle that the point cloud was rotated (- Z angle of the camera - 90º)
+            originalVehiclePoint = (float(vehicleInfoDict[key][11]), float(vehicleInfoDict[key][12]), float(vehicleInfoDict[key][13]) - float(vehicleInfoDict[key][21])/2)
+
+            # because of the point cloud is aditionally transformed to be pointing in the direction of x axis instead of the y axis
+            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundZaxis(originalVehiclePoint, self.gtaSample.pcData.rotation_amount)
+
+            # transform from lidar coordinate system to camera coordinate system
+            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundZaxis(rotatedVehiclePos, self.degreesToRad(90))
+            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundXaxis(rotatedVehiclePos, self.degreesToRad(90))
+
+            # check if the vehicle is in front of the camera if not, ignore it
+            objectPosition = np.array([originalVehiclePoint[0], originalVehiclePoint[1], originalVehiclePoint[2]])
+            print("Object position: " + str(objectPosition))
+
+            camPosition = np.zeros(3)
+            
+            # car to cam instead of cam to car because the gta is in left handed coords and the projection matrix is in right handed coords
+            vecCamToObj = objectPosition - camPosition
+            vecCamToObj.dot(vecCamToObj)
+            # normalize vector       
+            mag = np.sqrt(math.pow(vecCamToObj[0], 2) + math.pow(vecCamToObj[1], 2) + math.pow(vecCamToObj[2], 2))
+            vecCamToObj = np.array([vecCamToObj[0]/mag, vecCamToObj[1]/mag, vecCamToObj[2]/mag])
+
+            # # dot product
+            dotCamObj = self.gtaSample.camForwardDir.dot(vecCamToObj)
+            
+            angle = math.acos(dotCamObj) * 180 / math.pi
+
+            if angle < 0 or angle > 90:
                 continue
 
-            #kitti_height, kitti_width, kitti_channels = self.gtaSample.imageView.getKittiImageDimensions()
+            #### 3D bounding box dimensions ####
+            # height (dimz), width (dimx), length (dimy)
+            bb3d_height = float(vehicleInfoDict[key][21])
+            bb3d_width = float(vehicleInfoDict[key][19])
+            bb3d_length = float(vehicleInfoDict[key][20])
+
+            #### Calculate 3D and 2D bounding boxes through the object's rotation and forward vector, and camera rotation 
+            obj_rot_rads = 0
+            if float(vehicleInfoDict[key][24]) < 0 and float(vehicleInfoDict[key][25]) < 0: #DONE
+                print("1")
+                obj_rot_rads = float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation + 90
+            elif float(vehicleInfoDict[key][24]) < 0 and float(vehicleInfoDict[key][25]) > 0: #DONE
+                print("4")
+                obj_rot_rads = -float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation - 90
+            elif float(vehicleInfoDict[key][24]) > 0 and float(vehicleInfoDict[key][25]) > 0: # almost
+                #if (float(vehicleInfoDict[key][16]) > -45):
+                if float(vehicleInfoDict[key][26]) < 0:
+                    print("5")
+                    #obj_rot_rads = float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation
+                    obj_rot_rads = -float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation - 90
+                else:
+                    print("6")
+                    obj_rot_rads = -float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation - 90
+            elif float(vehicleInfoDict[key][24]) > 0 and float(vehicleInfoDict[key][25]) < 0:
+                #if float(vehicleInfoDict[key][16]) >= -45:
+                if float(vehicleInfoDict[key][26]) < 0:
+                    print("7")
+                    obj_rot_rads = float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation - 90 + 180
+                    print("ROT: " + str(obj_rot_rads))
+                    #obj_rot_rads = -float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation
+                else:
+                    print("8")
+                    obj_rot_rads = float(vehicleInfoDict[key][16]) + self.gtaSample.rawCamRotation - 90 - 180
+
+            obj_rot_rads = self.degreesToRad(obj_rot_rads)
+
+            # make sure the ry is between [-pi, pi]
+            if obj_rot_rads > math.pi:
+                obj_rot_rads = -(math.pi + (math.pi - obj_rot_rads)) 
+            elif obj_rot_rads < -math.pi:
+                obj_rot_rads = math.pi + (math.pi + obj_rot_rads)
+
+            #### Calculate 2D and 3D bounding boxes ####
+            box3d_pts_2d, box3d_pts_3d = compute_box_3d(bb3d_length, bb3d_width, bb3d_height, obj_rot_rads, rotatedVehiclePos, self.p0_mat, self.R0, self.C2V)
+            
+            xmin = 0
+            ymin = 0
+            xmax = 0
+            ymax = 0
+            print(len(box3d_pts_2d))
+            for i in range(0, len(box3d_pts_2d)):
+                if i == 0:
+                    xmin = box3d_pts_2d[i,0]
+                    ymin = box3d_pts_2d[i,1]
+                    xmax = box3d_pts_2d[i,0]
+                    ymax = box3d_pts_2d[i,1]
+                else:
+                    if box3d_pts_2d[i,0] < xmin:
+                        xmin = box3d_pts_2d[i,0]
+                    elif box3d_pts_2d[i,0] > xmax:
+                        xmax = box3d_pts_2d[i,0]
+                    
+                    if box3d_pts_2d[i,1] < ymin:
+                        ymin = box3d_pts_2d[i,1]
+                    elif box3d_pts_2d[i,1] > ymax:
+                        ymax = box3d_pts_2d[i,1]
+
+            if xmin < 0 and xmax > kitti_width and ymin < 0 and ymax > kitti_height: # ignore object
+                continue
+            
+            # make sure that the uv coorsinates are within image bounds
+            if xmin < 0: 
+                xmin = 0
+            if xmax >= kitti_width:
+                xmax = kitti_width-1
+            if ymin < 0:
+                ymin = 0
+            if ymax >= kitti_height:
+                ymax = kitti_height-1
+
+            boundingBoxList.append((xmin, ymin, xmax, ymax))
 
             # object type: car
             label_line += vehicleInfoDict[key][22] + " "
@@ -267,95 +374,23 @@ class KittiSample:
 
             # alpha
             label_line += "0 "
-            
-            # make sure that the projected points correspond to the min and max
-            minx = -1
-            miny = -1
-            maxx = -1
-            maxy = -1
-            if int(vehicleInfoDict[key][4]) < int(vehicleInfoDict[key][9]):
-                minx = vehicleInfoDict[key][4]
-                maxx = vehicleInfoDict[key][9]
-            else:
-                minx = vehicleInfoDict[key][9]
-                maxx = vehicleInfoDict[key][4]
-            
-            if int(vehicleInfoDict[key][5]) < int(vehicleInfoDict[key][10]):
-                miny = vehicleInfoDict[key][5]
-                maxy = vehicleInfoDict[key][10]
-            else:
-                miny = vehicleInfoDict[key][10]
-                maxy = vehicleInfoDict[key][5]
-
-            # get projected coordinates for resized (kitti) image
-            minx, miny, maxx, maxy = self.gtaSample.imageView.calculate2dBoundingBoxesForKittiImgSize((int(minx), int(miny), int(maxx), int(maxy)))
-
-            boundingBoxList.append((minx, miny, maxx, maxy))
 
             # minx, miny, maxx, maxy
-            label_line += str(minx) + " " + str(miny) + " " + str(maxx) + " " + str(maxy) + " "
+            label_line += str(int(xmin)) + " " + str(int(ymin)) + " " + str(int(xmax)) + " " + str(int(ymax)) + " "
+
+            label_line += str(bb3d_height) + " " + str(bb3d_width) + " " + str(bb3d_length) + " "
             
-            # height, width, length
-            #label_line += vehicleInfoDict[key][19] + " " + vehicleInfoDict[key][20] + " " + vehicleInfoDict[key][21] + " "
-            label_line += vehicleInfoDict[key][21] + " " + vehicleInfoDict[key][20] + " " + vehicleInfoDict[key][19] + " "
-
-            # location
-            # rotate location point around z axis according to the angle that the point cloud was rotated (- Z angle of the camera - 90º)
-            originalVehiclePoint = (float(vehicleInfoDict[key][11]), float(vehicleInfoDict[key][12]), float(vehicleInfoDict[key][13]) - float(vehicleInfoDict[key][21])/2)
-
-            print("ORIGINAL CENTER: " + str(originalVehiclePoint))
-
-            # because of the point cloud is aditionally transformed to be pointing in the direction of x axis instead of the y axis
-            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundZaxis(originalVehiclePoint, self.gtaSample.pcData.rotation_amount) #self.degreesToRad(-90))
-
-            print("ORIGINAL CENTER RotZ -90º: " + str(rotatedVehiclePos))
-
-            # transform from lidar coordinate system to camera coordinate system
-            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundZaxis(rotatedVehiclePos, self.degreesToRad(90))
-            rotatedVehiclePos = self.gtaSample.pcData.rotatePointAroundXaxis(rotatedVehiclePos, self.degreesToRad(90))
-
             label_line += str(rotatedVehiclePos[0]) + " " + str(rotatedVehiclePos[1]) + " " + str(rotatedVehiclePos[2]) + " "
-            
-            # [-180, 180]
-            print("Rotation in degrees: " + vehicleInfoDict[key][16])
 
-            print("Rotation in degrees: " + str(-float(vehicleInfoDict[key][16]))) # + 40
-
-            # [-pi, pi]
-            obj_rot_rads = self.degreesToRad(float(vehicleInfoDict[key][16]) * -1)
-
-            #print("Rotation in radians: " + str(self.degreesToRad(float(vehicleInfoDict[key][16]))))
-
-            #obj_rotation = float(vehicleInfoDict[key][16])
-
-            #if obj_rotation < 0:
-            #    obj_rotation = 180 + (180 - abs(obj_rotation))
-            #    print("Rotation in degrees: " + str(obj_rotation))
-                
-            obj_rot_rads = obj_rot_rads - self.degreesToRad(90) - self.gtaSample.pcData.rotation_amount
-
-            # keep the angle between [-pi, pi]
-            if obj_rot_rads > math.pi:
-                obj_rot_rads = abs(math.pi - obj_rot_rads) - math.pi
-            if obj_rot_rads < -math.pi:
-                obj_rot_rads = math.pi - (abs(obj_rot_rads) - math.pi)
-
-            print("--- Camera rotation: " + str(self.gtaSample.rawCamRotation))
-            print("--- Vehicle rotation in velocyne coords: " + vehicleInfoDict[key][15])
-            print("--- Vehicle rotation in cam coords: " + str(obj_rot_rads*180/math.pi))
-
-            #print("Rotation in degrees: " + str(self.degreesToRad(obj_rotation + 90) + self.gtaSample.pcData.rotation_amount))
-            print("--- Final rotation: " + str(obj_rot_rads))
-            # rotation_y in radians
-            #label_line += str(self.degreesToRad(float(vehicleInfoDict[key][16]))) + " "# + 90) + self.gtaSample.pcData.rotation_amount) + " "
             label_line += str(obj_rot_rads) + " "
 
             contents_list.append(label_line)
 
         # show resulting bounding boxes in kitti images
-        #self.gtaSample.imageView.showViewWith2dBoundingBoxes(boundingBoxList, self.gtaSample.imageView.kittiImage, color = (0, 0, 255), window_title = "Bounding box results", window_size = 0.5)
-
+        #self.gtaSample.imageView.showViewWith2dBoundingBoxes(boundingBoxList, self.gtaSample.imageView.kittiImage, color = (0, 0, 255), window_title = "Bounding box results", window_size = 0.8)
+        
         self.gtaSample.saveListIntoTxtFile(contents_list, dirname, filename)
+        
 
     def is_bb_truncated(self, list_coords):
         '''
@@ -388,10 +423,6 @@ class KittiSample:
                 or int(float(dict_vehicles_dim[str(key)][4])) < 0 \
                 or int(float(dict_vehicles_dim[str(key)][10])) < 0 \
                 or int(float(dict_vehicles_dim[str(key)][5])) < 0:
-                #or int(float(dict_vehicles_dim[str(key)][9])) > 1392 \
-                #or int(float(dict_vehicles_dim[str(key)][4])) > 1392 \
-                #or int(float(dict_vehicles_dim[str(key)][10])) > 783 \
-                #or int(float(dict_vehicles_dim[str(key)][5])) > 783:
 
                 self.gtaSample.dict_2d_bb_NEW[key].append(-1)
                 self.gtaSample.dict_2d_bb_NEW[key].append(-1)
@@ -405,15 +436,11 @@ class KittiSample:
             self.gtaSample.dict_2d_bb_NEW[key].append(int(float(dict_vehicles_dim[str(key)][9])))
             self.gtaSample.dict_2d_bb_NEW[key].append(int(float(dict_vehicles_dim[str(key)][10])))
             self.gtaSample.dict_2d_bb_NEW[key].append(int(float(dict_vehicles_dim[str(key)][5])))
-            print("HELLO: " + dict_vehicles_dim[str(key)][17] + " " + dict_vehicles_dim[str(key)][18])
+            
             dict_vehicle_projected_center[key].append(int(float(dict_vehicles_dim[str(key)][17])))
             dict_vehicle_projected_center[key].append(int(float(dict_vehicles_dim[str(key)][18])))
 
-            print("New projection: " + str(self.dict_2d_bb_NEW[key][0]) + " " + str(self.dict_2d_bb_NEW[key][1]) + " " + str(self.dict_2d_bb_NEW[key][2]) + " " + str(self.dict_2d_bb_NEW[key][3]))
-        
-        #print(self.dict_2d_bb_NEW)
-        print("Dictionary projection points: ")
-        print(self.gtaSample.dict_2d_bb_NEW)
+            #print("New projection: " + str(self.dict_2d_bb_NEW[key][0]) + " " + str(self.dict_2d_bb_NEW[key][1]) + " " + str(self.dict_2d_bb_NEW[key][2]) + " " + str(self.dict_2d_bb_NEW[key][3]))
         
         self.gtaSample.imageView.showViewWith2dBoundingBoxes(self.gtaSample.dict_2d_bb_NEW, self.gtaSample.imageView.gtaImage, self.gtaSample.imageView.dict_2d_bb_of_kitti_image.keys(), window_size = 0.7, object_centers = dict_vehicle_projected_center)
         pass

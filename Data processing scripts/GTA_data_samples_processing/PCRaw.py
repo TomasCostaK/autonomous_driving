@@ -158,6 +158,7 @@ class PcRaw:
         '''
         category_exists = False
         for i in range(0, len(self.list_labels)):
+            print("i: " + str(self.list_labels[i]))
             if self.list_labels[i] == category_id:
                 category_exists = True
 
