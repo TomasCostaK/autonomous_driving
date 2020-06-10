@@ -1,5 +1,9 @@
 # Deep Learning Classification using 3D Point Clouds 
 
+## Objective
+
+Base of the work below, but use Stereo image for depth estimation and simulate a LiDAR
+
 ## Table of Contents
 - [Objective](#objective)
 - [Dataset](#dataset)
