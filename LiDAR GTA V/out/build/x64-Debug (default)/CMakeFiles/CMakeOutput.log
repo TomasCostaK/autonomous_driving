@@ -1,0 +1,41 @@
+The system is: Windows - 10.0.17134.0 - AMD64
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+Compiler: D:/Programas/VisualStudio/VC/Tools/MSVC/14.26.28801/bin/HostX64/x64/cl.exe 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+Microsoft (R) C/C++ Optimizing Compiler Version 19.26.28806 for x64
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+CMakeCXXCompilerId.cpp
+Microsoft (R) Incremental Linker Version 14.26.28806.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+/out:CMakeCXXCompilerId.exe 
+CMakeCXXCompilerId.obj 
+
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CMakeCXXCompilerId.exe"
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CMakeCXXCompilerId.obj"
+
+The CXX compiler identification is MSVC, found in "D:/Coding/Autonomous_Diogo/autonomous_driving/LiDAR GTA V/out/build/x64-Debug (default)/CMakeFiles/3.17.20032601-MSVC_2/CompilerIdCXX/CMakeCXXCompilerId.exe"
+
+Determining if the CXX compiler works passed with the following output:
+Change Dir: D:/Coding/Autonomous_Diogo/autonomous_driving/LiDAR GTA V/out/build/x64-Debug (default)/CMakeFiles/CMakeTmp
+
+Run Build Command(s):D:\PROGRAMAS\VISUALSTUDIO\COMMON7\IDE\COMMONEXTENSIONS\MICROSOFT\CMAKE\Ninja\ninja.exe cmTC_60ad3 && [1/2] Building CXX object CMakeFiles\cmTC_60ad3.dir\testCXXCompiler.cxx.obj
+[2/2] Linking CXX executable cmTC_60ad3.exe
+
+
+
+Detecting CXX compiler ABI info compiled with the following output:
+Change Dir: D:/Coding/Autonomous_Diogo/autonomous_driving/LiDAR GTA V/out/build/x64-Debug (default)/CMakeFiles/CMakeTmp
+
+Run Build Command(s):D:\PROGRAMAS\VISUALSTUDIO\COMMON7\IDE\COMMONEXTENSIONS\MICROSOFT\CMAKE\Ninja\ninja.exe cmTC_aacf1 && [1/2] Building CXX object CMakeFiles\cmTC_aacf1.dir\CMakeCXXCompilerABI.cpp.obj
+[2/2] Linking CXX executable cmTC_aacf1.exe
+
+
+
