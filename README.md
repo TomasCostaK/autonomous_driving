@@ -2,7 +2,7 @@
 
 ## Objective
 
-Base of the work below, but use Stereo image for depth estimation and simulate a LiDAR
+Base of the work below, but use Stereo image for depth estimation and simulate a LiDAR, using Pseudo-LiDAR++
 
 ## Table of Contents
 - [Objective](#objective)
