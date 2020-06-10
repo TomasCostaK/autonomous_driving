@@ -948,9 +948,9 @@ void SetupGameForLidarScan(double horiFovMin, double horiFovMax, double vertFovM
 		centerDot.y = vehiclePos.y;
 	}
 
-	CAM::SET_CAM_COORD(panoramicCam, centerDot.x, centerDot.y, centerDot.z);
+	//CAM::SET_CAM_COORD(panoramicCam, centerDot.x, centerDot.y, centerDot.z);
 	
-	//CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), 0, 0, raycastHeightParam - halfCharacterHeight, 1);
+	CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), 0, 4, raycastHeightParam - halfCharacterHeight, 1);
 	//CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), 0, 0, GetLidarHeight(), 1);
 	
 	CAM::RENDER_SCRIPT_CAMS(1, 0, 0, 1, 0);
@@ -1462,8 +1462,8 @@ void PostLidarScanProcessing(std::string filePath)
 	WAIT(100);
 
 	//Rotate camera 360 degrees and take screenshots
-	for (int i = 0; i < 3; i++) {
-		cam_rotz = playerCurRot.z + i * 120;
+	for (int i = 0; i < 1; i++) {
+		cam_rotz = playerCurRot.z + i + 180;
 
 		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
@@ -1481,10 +1481,10 @@ void PostLidarScanProcessing(std::string filePath)
 	TIME::SET_CLOCK_TIME(12, 0, 0);
 
 	//Rotate camera 360 degrees and take screenshots
-	WAIT(100);
-	for (int i = 0; i < 3; i++) {
+	WAIT(80);
+	for (int i = 0; i < 1; i++) {
 		//Rotate camera
-		cam_rotz = playerCurRot.z + i * 120;
+		cam_rotz = playerCurRot.z + i + 180;
 		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
 
@@ -1497,9 +1497,9 @@ void PostLidarScanProcessing(std::string filePath)
 	GAMEPLAY::CLEAR_OVERRIDE_WEATHER();
 	GAMEPLAY::SET_OVERRIDE_WEATHER("CLEAR");
 
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 1; i++) {
 		//Rotate camera
-		cam_rotz = playerCurRot.z + i * 120;
+		cam_rotz = playerCurRot.z + i + 180;
 		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
 
