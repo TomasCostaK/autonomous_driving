@@ -28,7 +28,7 @@ The dataset of colored 3D point clouds is obtained through the simulation of a c
 
 ## Software
 
-- GTA V
+- GTA V  
 - Blender 2.8
 - Microsoft Visual Studio 2017
 - Point Cloud Visualizer addon for Blender
