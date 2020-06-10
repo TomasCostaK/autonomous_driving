@@ -1473,7 +1473,7 @@ void PostLidarScanProcessing(std::string filePath)
 		WAIT(200);
 
 		//Save screenshot
-		std::string filename = filePath + "_Camera_Print_Night_" + std::to_string(i) + ".bmp";
+		std::string filename = filePath + "_Camera_Print_Night_" + std::to_string(i+1) + ".bmp";
 		SaveScreenshot(filename.c_str());
 	}
 
@@ -1498,7 +1498,7 @@ void PostLidarScanProcessing(std::string filePath)
 		WAIT(200);
 
 		//Save screenshot
-		std::string filename = filePath + "_Camera_Print_Cloudy_" + std::to_string(i) + ".bmp";
+		std::string filename = filePath + "_Camera_Print_Cloudy_" + std::to_string(i+1) + ".bmp";
 		SaveScreenshot(filename.c_str());
 	}
 
@@ -1522,7 +1522,7 @@ void PostLidarScanProcessing(std::string filePath)
 		WAIT(200);
 
 		//Save screenshot
-		std::string filename = filePath + "_Camera_Print_Day_" + std::to_string(i) + ".bmp";
+		std::string filename = filePath + "_Camera_Print_Day_" + std::to_string(i+1) + ".bmp";
 		SaveScreenshot(filename.c_str());
 
 		// Iterate through every point, determine if it's present in the current FoV, if it is project it onto the picture and assign the screenX, screenY and FoV id to the respective point
