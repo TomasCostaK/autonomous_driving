@@ -1465,9 +1465,9 @@ void PostLidarScanProcessing(std::string filePath)
 	//For this one, i assumes values of -1 and 1, to make X rotations
 	for (int i = -1; i < 2; i += 2) {
 		//Chaging the distance of camera to fit the kitti dataset
-		CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), (i * 0.27) + 0.3, 6, raycastHeightParam - halfCharacterHeight, 1);
+		CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), (i * 0.27) + 0.1, 6, raycastHeightParam - halfCharacterHeight, 1);
 
-		cam_rotz = playerCurRot.z + 180 - (i * 20);
+		cam_rotz = playerCurRot.z + 180 - (i * 5);
 
 		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
@@ -1490,10 +1490,10 @@ void PostLidarScanProcessing(std::string filePath)
 	for (int i = -1; i < 2; i+=2) {
 		//Rotate camera
 
-		CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), (i * 0.27) + 0.3, 6, raycastHeightParam - halfCharacterHeight, 1);
+		CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), (i * 0.27) + 0.1 , 6, raycastHeightParam - halfCharacterHeight, 1);
 
 		//Angle to face the car
-		cam_rotz = playerCurRot.z + 180 - (i * 20);
+		cam_rotz = playerCurRot.z + 180 - (i * 5);
 		CAM::SET_CAM_ROT(panoramicCam, 0, 0, cam_rotz, 1);
 		WAIT(200);
 
@@ -1514,7 +1514,7 @@ void PostLidarScanProcessing(std::string filePath)
 	//For this one, i assumes values of -1 and 1, to make X rotations
 	for (int i = -1; i < 2; i += 2) {
 
-		CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), (i * 0.27), 6, raycastHeightParam - halfCharacterHeight, 1);
+		CAM::ATTACH_CAM_TO_ENTITY(panoramicCam, PLAYER::PLAYER_PED_ID(), (i * 0.27) + 0.1, 6, raycastHeightParam - halfCharacterHeight, 1);
 
 		//Rotate camera
 		cam_rotz = playerCurRot.z + 180 - (i * 5);
