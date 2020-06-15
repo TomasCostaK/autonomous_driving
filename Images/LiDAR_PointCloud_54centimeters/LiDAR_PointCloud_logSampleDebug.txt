@@ -1,0 +1,22 @@
+[ SetupGameForLidarScan() ] Lidar and Camera position in world space: 1.730003
+[ SetupGameForLidarScan() ] Character alpha value: 255
+[ SetupGameForLidarScan() ] Character position in world space: -1856.307007 140.439697 79.047913
+[ SetupGameForLidarScan() ] Character rotation in world space: 3.886766 0.064382 39.451679
+[ SetupGameForLidarScan() ] Rendering camera settings: 
+	Index: 514
+	Camera position: 128000.000000, 128000.000000, 21600.000000
+	Camera Rotation: -0.000000, -0.000000, 0.000000
+	Camera FOV: 70.000000
+	Camera Near Clip Field: 0.150000
+	Camera Far Clip Field: 800.000000
+	Camera Depth of Field: 150.000000
+[ SetupGameForLidarScan() ] New Cam height pos: -1856.307007 140.439697 80.317146
+[ SetupGameForLidarScan() ] Rendering camera settings: 
+	Index: 514
+	Camera position: -1860.079468, 145.025894, 80.158005
+	Camera Rotation: 3.886766, 0.064382, 39.451675
+	Camera FOV: 50.000000
+	Camera Near Clip Field: 0.150000
+	Camera Far Clip Field: 800.000000
+	Camera Depth of Field: 150.000000
+[ SetupGameForLidarScan() ] Max number of points per frame: 230813
