@@ -2,10 +2,10 @@ from GtaView import GtaView
 import os.path
 
 # path to directory only containng image files
-imagesDir = "D:/diogo/Desktop/qqqq/"
+imagesDir = "/home/jota/Documents/UA/TAA/images_t2/"
 
 # dont use the same directory as the input!
-outputpath = 'D:/diogo/Desktop/KittiSizedImages/'
+outputpath = '/home/jota/Documents/UA/TAA/logs_t2/v11/'
 
 for subdir, dirs, files in os.walk(imagesDir):
     for filename in files:
