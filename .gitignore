@@ -2,3 +2,6 @@
 .vs/
 bin/
 tmp/
+
+Pipfile
+__pycache__/
